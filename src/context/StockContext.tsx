@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Product, StockHistory, FilterStockStatus, Location, Tag, Preset } from '../types/stock';
+import { useStockFilter } from '../hooks/useStockFilter';
 import {
   getSupabaseClient,
   loadLocalProducts,
@@ -23,6 +24,7 @@ interface StockContextType {
   tags: Tag[];
   presets: Preset[];
   isLoading: boolean;
+  
   searchTerm: string;
   setSearchTerm: (term: string) => void;
   statusFilter: FilterStockStatus;
@@ -32,7 +34,8 @@ interface StockContextType {
   selectedTagFilter: string;
   setSelectedTagFilter: (tag: string) => void;
   filteredProducts: Product[];
-  
+  clearFilters: () => void;
+
   // Storage locations CRUD
   addLocation: (name: string) => Promise<boolean>;
   deleteLocation: (id: string) => Promise<boolean>;
@@ -64,12 +67,21 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [locations, setLocations] = useState<Location[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [presets, setPresets] = useState<Preset[]>([]);
-  
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<FilterStockStatus>('all');
-  const [locationFilter, setLocationFilter] = useState<string>('all');
-  const [selectedTagFilter, setSelectedTagFilter] = useState<string>('all');
+
+  // Dedicated filtering hook
+  const {
+    searchTerm,
+    setSearchTerm,
+    statusFilter,
+    setStatusFilter,
+    locationFilter,
+    setLocationFilter,
+    selectedTagFilter,
+    setSelectedTagFilter,
+    filteredProducts,
+    clearFilters
+  } = useStockFilter(products);
 
   const fetchAllData = useCallback(async () => {
     setIsLoading(true);
@@ -138,7 +150,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const client = getSupabaseClient();
     if (client && isSupabaseActive) {
       const channel = client
-        .channel('public-stock-changes-v3')
+        .channel('public-stock-changes-v4')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchAllData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_history' }, fetchAllData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, fetchAllData)
@@ -151,34 +163,6 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
     }
   }, [isSupabaseActive, fetchAllData]);
-
-  // Multi-criteria Filtering
-  const filteredProducts = products.filter((p) => {
-    // 1. Search term match (Name, JAN Code, Location, Tag)
-    const matchesSearch =
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.jan_code.includes(searchTerm) ||
-      p.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.tags.some(t => t.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    if (!matchesSearch) return false;
-
-    // 2. Location filter
-    if (locationFilter !== 'all' && p.location !== locationFilter) {
-      return false;
-    }
-
-    // 3. Tag filter
-    if (selectedTagFilter !== 'all' && !p.tags.includes(selectedTagFilter)) {
-      return false;
-    }
-
-    // 4. Binary Stock status filter (in_stock: stock > 0, out_of_stock: stock === 0)
-    if (statusFilter === 'in_stock') return p.current_stock > 0;
-    if (statusFilter === 'out_of_stock') return p.current_stock === 0;
-
-    return true;
-  });
 
   const getProductByJanCode = (janCode: string) => {
     return products.find((p) => p.jan_code === janCode);
@@ -476,6 +460,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         tags,
         presets,
         isLoading,
+
         searchTerm,
         setSearchTerm,
         statusFilter,
@@ -485,6 +470,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         selectedTagFilter,
         setSelectedTagFilter,
         filteredProducts,
+        clearFilters,
 
         addLocation,
         deleteLocation,
