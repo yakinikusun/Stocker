@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { X, Camera, Plus, Package, Image as ImageIcon, BookmarkPlus, Tag as TagIcon, FolderKanban } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Camera, Plus, Package, Upload, Image as ImageIcon, BookmarkPlus, Tag as TagIcon, FolderKanban, Loader2 } from 'lucide-react';
 import { useStock } from '../context/StockContext';
+import { uploadProductImage } from '../lib/supabase';
 
 interface ProductModalProps {
   isOpen: boolean;
@@ -15,7 +16,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   initialJanCode = '',
   onTriggerScanner
 }) => {
-  const { addProduct, addPreset, getProductByJanCode, locations, tags, presets, createProductFromPreset } = useStock();
+  const { addProduct, addPreset, getProductByJanCode, locations, tags, presets } = useStock();
 
   const [janCode, setJanCode] = useState('');
   const [name, setName] = useState('');
@@ -23,11 +24,15 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const [location, setLocation] = useState<string>('冷蔵庫');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [saveAsPreset, setSaveAsPreset] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState('');
 
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (initialJanCode) {
@@ -42,6 +47,15 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   }, [locations]);
 
   if (!isOpen) return null;
+
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImageFile(file);
+      const objectUrl = URL.createObjectURL(file);
+      setImagePreview(objectUrl);
+    }
+  };
 
   const toggleTag = (tagName: string) => {
     if (selectedTags.includes(tagName)) {
@@ -59,7 +73,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       if (target.jan_code) setJanCode(target.jan_code);
       if (target.location) setLocation(target.location);
       if (target.tags) setSelectedTags(target.tags);
-      if (target.image_url) setImageUrl(target.image_url);
+      if (target.image_url) {
+        setImageUrl(target.image_url);
+        setImagePreview(target.image_url);
+      }
     }
   };
 
@@ -81,13 +98,27 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     }
 
     setIsSubmitting(true);
+    let finalImageUrl = imageUrl.trim() || null;
+
+    // Handle File Upload if an image file was selected
+    if (imageFile) {
+      setIsUploading(true);
+      try {
+        finalImageUrl = await uploadProductImage(imageFile);
+      } catch (err: any) {
+        console.error('Image upload failed:', err);
+      } finally {
+        setIsUploading(false);
+      }
+    }
+
     const result = await addProduct({
       jan_code: finalJan,
       name: name.trim(),
       current_stock: Math.max(0, currentStock),
       location: location || '冷蔵庫',
       tags: selectedTags,
-      image_url: imageUrl.trim() || null
+      image_url: finalImageUrl
     });
 
     if (result && saveAsPreset) {
@@ -96,7 +127,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         name: name.trim(),
         location: location || '冷蔵庫',
         tags: selectedTags,
-        image_url: imageUrl.trim() || null
+        image_url: finalImageUrl
       });
     }
 
@@ -108,6 +139,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       setName('');
       setCurrentStock(1);
       setImageUrl('');
+      setImageFile(null);
+      setImagePreview(null);
       setSelectedTags([]);
       setSaveAsPreset(false);
       onClose();
@@ -172,6 +205,64 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             />
           </div>
 
+          {/* Image Upload Zone */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+              <ImageIcon className="w-3.5 h-3.5 text-blue-600" /> 商品写真・画像アップロード
+            </label>
+            
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              onChange={handleImageFileChange}
+              className="hidden"
+            />
+
+            {imagePreview ? (
+              <div className="relative w-full h-36 rounded-xl overflow-hidden border border-slate-300 group">
+                <img
+                  src={imagePreview}
+                  alt="プレビュー"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-3 py-1.5 rounded-lg bg-white text-slate-800 text-xs font-semibold shadow-sm"
+                  >
+                    変更
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImageFile(null);
+                      setImagePreview(null);
+                      setImageUrl('');
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold shadow-sm"
+                  >
+                    削除
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full h-24 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-blue-50/50 hover:border-blue-400 transition-all flex flex-col items-center justify-center cursor-pointer p-3 text-center"
+              >
+                <Upload className="w-6 h-6 text-slate-400 mb-1" />
+                <span className="text-xs font-semibold text-slate-600">
+                  クリックして画像をアップロード
+                </span>
+                <span className="text-[10px] text-slate-400 mt-0.5">
+                  JPEG, PNG, WEBP 画像ファイルに対応
+                </span>
+              </div>
+            )}
+          </div>
+
           {/* Storage Location Selector */}
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
@@ -190,7 +281,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             </select>
           </div>
 
-          {/* JAN Code Field with Scan Trigger */}
+          {/* JAN Code Field */}
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
               <span>JANコード (バーコード)</span>
@@ -254,18 +345,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             </div>
           </div>
 
-          {/* Image URL */}
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700">画像URL (任意)</label>
-            <input
-              type="url"
-              placeholder="https://example.com/image.jpg"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
-            />
-          </div>
-
           {/* Save to Preset Checkbox */}
           <div className="pt-2">
             <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-purple-900 bg-purple-50 p-2.5 rounded-xl border border-purple-200">
@@ -290,10 +369,18 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isUploading}
               className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all"
             >
-              <Plus className="w-4 h-4" /> 在庫に追加
+              {isUploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> 画像送信中...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" /> 在庫に追加
+                </>
+              )}
             </button>
           </div>
         </form>

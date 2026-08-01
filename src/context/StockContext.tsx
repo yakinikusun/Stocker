@@ -13,7 +13,8 @@ import {
   saveLocalTags,
   loadLocalPresets,
   saveLocalPresets,
-  resetLocalData
+  resetLocalData,
+  deleteImageIfOrphaned
 } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
@@ -150,7 +151,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const client = getSupabaseClient();
     if (client && isSupabaseActive) {
       const channel = client
-        .channel('public-stock-changes-v5')
+        .channel('public-stock-changes-v6')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchAllData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_history' }, fetchAllData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, fetchAllData)
@@ -264,16 +265,28 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const deletePreset = async (id: string): Promise<boolean> => {
+    const targetPreset = presets.find(p => p.id === id);
     const client = getSupabaseClient();
+
     if (client && isSupabaseActive) {
       const { error } = await client.from('presets').delete().eq('id', id);
       if (error) { alert(`削除エラー: ${error.message}`); return false; }
+      
+      const remainingPresets = presets.filter(p => p.id !== id);
+      if (targetPreset?.image_url) {
+        await deleteImageIfOrphaned(targetPreset.image_url, products, remainingPresets);
+      }
+
       await fetchAllData();
       return true;
     } else {
-      const updated = presets.filter(p => p.id !== id);
-      setPresets(updated);
-      saveLocalPresets(updated);
+      const remainingPresets = presets.filter(p => p.id !== id);
+      setPresets(remainingPresets);
+      saveLocalPresets(remainingPresets);
+
+      if (targetPreset?.image_url) {
+        deleteImageIfOrphaned(targetPreset.image_url, products, remainingPresets);
+      }
       return true;
     }
   };
@@ -401,14 +414,12 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       await fetchAllData();
       return true;
     } else {
-      // Local Fallback Storage Mode with Sequential Compression
       const updatedProducts = products.map((p) =>
         p.id === productId ? { ...p, current_stock: newStock, updated_at: now } : p
       );
       setProducts(updatedProducts);
       saveLocalProducts(updatedProducts);
 
-      // Check if the most recent log in histories can be compressed
       const latestLog = histories[0];
       const timeDiffMs = latestLog ? Math.abs(new Date(now).getTime() - new Date(latestLog.created_at).getTime()) : Infinity;
       const isCompressible =
@@ -416,12 +427,11 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         latestLog.product_id === productId &&
         latestLog.user_id === currentUserId &&
         latestLog.reason === selectedReason &&
-        timeDiffMs <= 10 * 60 * 1000; // Within 10 minutes
+        timeDiffMs <= 10 * 60 * 1000;
 
       let updatedHistories: StockHistory[];
 
       if (isCompressible) {
-        // Compress by updating change_amount & timestamp of the latest log entry
         const updatedLatest: StockHistory = {
           ...latestLog,
           change_amount: latestLog.change_amount + changeAmount,
@@ -429,7 +439,6 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
         updatedHistories = [updatedLatest, ...histories.slice(1)];
       } else {
-        // Create new log entry
         const historyItem: StockHistory = {
           id: `hist-${Date.now()}`,
           product_id: productId,
@@ -459,16 +468,28 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return false;
     }
 
+    const targetProduct = products.find(p => p.id === productId);
     const client = getSupabaseClient();
+
     if (client && isSupabaseActive) {
       const { error } = await client.from('products').delete().eq('id', productId);
       if (error) { alert(`削除エラー: ${error.message}`); return false; }
+
+      const remainingProducts = products.filter(p => p.id !== productId);
+      if (targetProduct?.image_url) {
+        await deleteImageIfOrphaned(targetProduct.image_url, remainingProducts, presets);
+      }
+
       await fetchAllData();
       return true;
     } else {
-      const updated = products.filter((p) => p.id !== productId);
-      setProducts(updated);
-      saveLocalProducts(updated);
+      const remainingProducts = products.filter((p) => p.id !== productId);
+      setProducts(remainingProducts);
+      saveLocalProducts(remainingProducts);
+
+      if (targetProduct?.image_url) {
+        deleteImageIfOrphaned(targetProduct.image_url, remainingProducts, presets);
+      }
       return true;
     }
   };
