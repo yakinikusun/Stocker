@@ -2,13 +2,20 @@ import React, { useState } from 'react';
 import { X, Plus, Minus, Check, PackageCheck } from 'lucide-react';
 import { Product } from '../types/stock';
 import { useStock } from '../context/StockContext';
-import { STOCK_ADJUST_REASONS } from '../constants';
 
 interface StockAdjustModalProps {
   product: Product | null;
   isOpen: boolean;
   onClose: () => void;
 }
+
+const COMMON_REASONS = [
+  '入荷（買い物・補充）',
+  '消費・調理使用',
+  '賞味期限切れ・廃棄',
+  '棚卸調整',
+  'その他'
+];
 
 export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
   product,
@@ -18,7 +25,7 @@ export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
   const { adjustStock } = useStock();
   const [changeAmount, setChangeAmount] = useState<number>(1);
   const [mode, setMode] = useState<'add' | 'subtract'>('add');
-  const [reason, setReason] = useState<string>(STOCK_ADJUST_REASONS[0]);
+  const [reason, setReason] = useState<string>('入荷（買い物・補充）');
   const [customReason, setCustomReason] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
@@ -87,7 +94,7 @@ export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
               type="button"
               onClick={() => {
                 setMode('add');
-                setReason(STOCK_ADJUST_REASONS[0]);
+                setReason('入荷（買い物・補充）');
               }}
               className={`py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
                 mode === 'add'
@@ -101,7 +108,7 @@ export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
               type="button"
               onClick={() => {
                 setMode('subtract');
-                setReason(STOCK_ADJUST_REASONS[1]);
+                setReason('消費・調理使用');
               }}
               className={`py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
                 mode === 'subtract'
@@ -152,7 +159,7 @@ export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
               onChange={(e) => setReason(e.target.value)}
               className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none"
             >
-              {STOCK_ADJUST_REASONS.map((r) => (
+              {COMMON_REASONS.map((r) => (
                 <option key={r} value={r}>
                   {r}
                 </option>

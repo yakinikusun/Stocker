@@ -1,76 +1,27 @@
-import React, { useState, useMemo } from 'react';
-import { History, ShieldCheck, Search, ArrowUpRight, ArrowDownRight, User, Calendar, Tag, Layers } from 'lucide-react';
+import React, { useState } from 'react';
+import { History, ShieldCheck, Search, ArrowUpRight, ArrowDownRight, User, Calendar, Tag, FolderKanban } from 'lucide-react';
 import { useStock } from '../context/StockContext';
-import { StockHistory } from '../types/stock';
-
-export interface CompressedStockHistory extends StockHistory {
-  op_count?: number;
-}
-
-/**
- * Group consecutive identical operations (same product, same user, same reason within 10 minutes)
- * into a single compressed log entry.
- */
-export function compressHistories(histories: StockHistory[]): CompressedStockHistory[] {
-  if (histories.length === 0) return [];
-
-  const compressed: CompressedStockHistory[] = [];
-
-  for (const item of histories) {
-    if (compressed.length === 0) {
-      compressed.push({ ...item, op_count: 1 });
-      continue;
-    }
-
-    const previous = compressed[compressed.length - 1];
-    const timeDiffMs = Math.abs(new Date(previous.created_at).getTime() - new Date(item.created_at).getTime());
-
-    const isSameProduct = previous.product_id === item.product_id || (previous.product_name === item.product_name && previous.jan_code === item.jan_code);
-    const isSameUser = previous.user_id === item.user_id || previous.user_email === item.user_email;
-    const isSameReason = previous.reason === item.reason;
-    const isWithinTime = timeDiffMs <= 10 * 60 * 1000; // Within 10 minutes
-
-    if (isSameProduct && isSameUser && isSameReason && isWithinTime) {
-      previous.change_amount += item.change_amount;
-      previous.op_count = (previous.op_count || 1) + 1;
-    } else {
-      compressed.push({ ...item, op_count: 1 });
-    }
-  }
-
-  return compressed;
-}
 
 export const HistoryLog: React.FC = () => {
   const { histories } = useStock();
   const [filterQuery, setFilterQuery] = useState('');
 
-  // Apply consecutive compression
-  const compressedHistories = useMemo(() => {
-    return compressHistories(histories);
-  }, [histories]);
+  const filteredHistories = histories.filter((h) => {
+    const query = filterQuery.toLowerCase();
+    const prodName = (h.product_name || '').toLowerCase();
+    const jan = (h.jan_code || '').toLowerCase();
+    const reason = (h.reason || '').toLowerCase();
+    const userName = (h.user_name || h.user_email || '').toLowerCase();
+    const loc = (h.location || '').toLowerCase();
 
-  // Filter logs by search query
-  const filteredHistories = useMemo(() => {
-    return compressedHistories.filter((h) => {
-      const query = filterQuery.toLowerCase().trim();
-      if (!query) return true;
-
-      const prodName = (h.product_name || '').toLowerCase();
-      const jan = (h.jan_code || '').toLowerCase();
-      const reason = (h.reason || '').toLowerCase();
-      const userName = (h.user_name || h.user_email || '').toLowerCase();
-      const loc = (h.location || '').toLowerCase();
-
-      return (
-        prodName.includes(query) ||
-        jan.includes(query) ||
-        reason.includes(query) ||
-        userName.includes(query) ||
-        loc.includes(query)
-      );
-    });
-  }, [compressedHistories, filterQuery]);
+    return (
+      prodName.includes(query) ||
+      jan.includes(query) ||
+      reason.includes(query) ||
+      userName.includes(query) ||
+      loc.includes(query)
+    );
+  });
 
   const formatDate = (isoString: string) => {
     try {
@@ -97,13 +48,13 @@ export const HistoryLog: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="font-bold text-slate-800 text-sm">在庫操作ログ（自動圧縮機能付き）</h2>
+              <h2 className="font-bold text-slate-800 text-sm">在庫操作ログ（改ざん不可・追記専用）</h2>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
                 <ShieldCheck className="w-3 h-3 text-emerald-600" /> RLS保護
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              誰が・いつ・何を・どの保管場所で変更したかの全履歴です。連続する同一操作は1つのログに自動圧縮されます。
+              誰が・いつ・何を・どのように変更したかの全履歴です。Supabase RLSにより変更・削除は不可。
             </p>
           </div>
         </div>
@@ -130,7 +81,7 @@ export const HistoryLog: React.FC = () => {
                 <th className="p-3.5">日時</th>
                 <th className="p-3.5">対象商品</th>
                 <th className="p-3.5">保管場所</th>
-                <th className="p-3.5">合計変動</th>
+                <th className="p-3.5">変動</th>
                 <th className="p-3.5">操作理由</th>
                 <th className="p-3.5">担当ユーザー</th>
               </tr>
@@ -145,8 +96,6 @@ export const HistoryLog: React.FC = () => {
               ) : (
                 filteredHistories.map((h) => {
                   const isPositive = h.change_amount > 0;
-                  const opCount = h.op_count || 1;
-
                   return (
                     <tr key={h.id} className="hover:bg-slate-50 transition-colors">
                       {/* Date */}
@@ -174,36 +123,25 @@ export const HistoryLog: React.FC = () => {
                         </span>
                       </td>
 
-                      {/* Change Amount & Compression Count */}
+                      {/* Change Amount */}
                       <td className="p-3.5 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold font-mono border ${
-                              isPositive
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                : 'bg-rose-50 text-rose-800 border-rose-200'
-                            }`}
-                          >
-                            {isPositive ? (
-                              <>
-                                <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" /> +{h.change_amount}
-                              </>
-                            ) : (
-                              <>
-                                <ArrowDownRight className="w-3.5 h-3.5 text-rose-600" /> {h.change_amount}
-                              </>
-                            )}
-                          </span>
-
-                          {opCount > 1 && (
-                            <span
-                              className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-semibold flex items-center gap-1"
-                              title={`連続 ${opCount} 回の操作を合算表示`}
-                            >
-                              <Layers className="w-3 h-3 text-purple-500" /> {opCount}回合算
-                            </span>
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold font-mono border ${
+                            isPositive
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : 'bg-rose-50 text-rose-800 border-rose-200'
+                          }`}
+                        >
+                          {isPositive ? (
+                            <>
+                              <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" /> +{h.change_amount}
+                            </>
+                          ) : (
+                            <>
+                              <ArrowDownRight className="w-3.5 h-3.5 text-rose-600" /> {h.change_amount}
+                            </>
                           )}
-                        </div>
+                        </span>
                       </td>
 
                       {/* Reason */}
