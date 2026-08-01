@@ -149,7 +149,6 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
       {/* Tab 1: Storage Locations */}
       {activeSubTab === 'locations' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Add Location Form */}
           <div className="clean-card p-5 space-y-4 md:col-span-1">
             <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
               <Plus className="w-4 h-4 text-blue-600" /> 保管場所の追加
@@ -175,7 +174,6 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
             </form>
           </div>
 
-          {/* Locations List */}
           <div className="clean-card p-5 space-y-4 md:col-span-2">
             <h3 className="text-sm font-bold text-slate-800">登録済み保管場所一覧</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -209,7 +207,6 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
       {/* Tab 2: Stock Presets */}
       {activeSubTab === 'presets' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Add Preset Form */}
           <div className="clean-card p-5 space-y-4 md:col-span-1">
             <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
               <Plus className="w-4 h-4 text-purple-600" /> プリセット新規登録
@@ -273,11 +270,8 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
             </form>
           </div>
 
-          {/* Presets List */}
           <div className="clean-card p-5 space-y-4 md:col-span-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-800">登録済みプリセット一覧 (ストック再補充用)</h3>
-            </div>
+            <h3 className="text-sm font-bold text-slate-800">登録済みプリセット一覧 (ストック再補充用)</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {presets.map((pst) => (
                 <div
@@ -336,7 +330,6 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
       {/* Tab 3: Tags */}
       {activeSubTab === 'tags' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Add Tag Form */}
           <div className="clean-card p-5 space-y-4 md:col-span-1">
             <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
               <Plus className="w-4 h-4 text-amber-600" /> タグの追加
@@ -362,7 +355,6 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
             </form>
           </div>
 
-          {/* Tags List */}
           <div className="clean-card p-5 space-y-4 md:col-span-2">
             <h3 className="text-sm font-bold text-slate-800">登録済みタグ一覧</h3>
             <div className="flex flex-wrap gap-2.5">
