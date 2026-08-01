@@ -1,18 +1,26 @@
 import React, { useState } from 'react';
-import { Search, Plus, Package, LayoutGrid, List, RotateCcw, FolderKanban } from 'lucide-react';
+import {
+  Search,
+  Plus,
+  Minus,
+  Package,
+  LayoutGrid,
+  List,
+  Trash2,
+  RotateCcw,
+  FolderKanban
+} from 'lucide-react';
 import { useStock } from '../context/StockContext';
 import { useAuth } from '../context/AuthContext';
 import { Product } from '../types/stock';
 import { StockAdjustModal } from './StockAdjustModal';
-import { ProductCard } from './ProductCard';
-import { ProductTableRow } from './ProductTableRow';
 
 interface StockListProps {
   onOpenAddModal: () => void;
   onOpenScanner: () => void;
 }
 
-export const StockList: React.FC<StockListProps> = ({ onOpenAddModal }) => {
+export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScanner }) => {
   const {
     filteredProducts,
     searchTerm,
@@ -35,16 +43,25 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal }) => {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedProductForAdjust, setSelectedProductForAdjust] = useState<Product | null>(null);
 
-  const handleDelete = (productId: string) => {
-    const target = products.find((p) => p.id === productId);
-    if (target && confirm(`「${target.name}」を削除してもよろしいですか？`)) {
-      deleteProduct(productId);
+  // Binary Stock Badge: 在庫あり vs 在庫なし
+  const getStockBadge = (stock: number) => {
+    if (stock === 0) {
+      return (
+        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" /> 在庫なし
+        </span>
+      );
     }
+    return (
+      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+        在庫あり ({stock})
+      </span>
+    );
   };
 
   return (
     <div className="space-y-4">
-      {/* Location Filter Bar */}
+      {/* Location Filter Bar (冷蔵庫, 冷凍庫, 野菜室 etc.) */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
         <button
           onClick={() => setLocationFilter('all')}
@@ -120,7 +137,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal }) => {
             ))}
           </select>
 
-          {/* Status Filter Dropdown */}
+          {/* Binary Status Filter Dropdown */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
@@ -183,14 +200,93 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal }) => {
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredProducts.map((p) => (
-            <ProductCard
+            <div
               key={p.id}
-              product={p}
-              isAdmin={user?.role === 'admin'}
-              onAdjustStock={adjustStock}
-              onSelectProductForAdjust={setSelectedProductForAdjust}
-              onDeleteProduct={handleDelete}
-            />
+              className="rounded-xl clean-card-interactive p-4 flex flex-col justify-between space-y-3 relative group bg-white"
+            >
+              {/* Card Header */}
+              <div className="flex items-start gap-3">
+                {p.image_url ? (
+                  <img
+                    src={p.image_url}
+                    alt={p.name}
+                    className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                    <Package className="w-8 h-8" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    {getStockBadge(p.current_stock)}
+                    {user?.role === 'admin' && (
+                      <button
+                        onClick={() => {
+                          if (confirm(`「${p.name}」を削除してもよろしいですか？`)) {
+                            deleteProduct(p.id);
+                          }
+                        }}
+                        className="text-slate-400 hover:text-rose-600 p-1 transition-colors"
+                        title="削除"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  <h4 className="font-semibold text-sm text-slate-900 line-clamp-2 leading-snug">
+                    {p.name}
+                  </h4>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700">
+                      {p.location}
+                    </span>
+                    {p.tags.map((t) => (
+                      <span key={t} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">
+                        #{t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Stock Count & Actions Bar */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] text-slate-500 block">現在数</span>
+                  <span className="text-2xl font-extrabold font-mono text-slate-900 tracking-tight">
+                    {p.current_stock}
+                  </span>
+                </div>
+
+                {/* Direct Adjust Buttons */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => adjustStock(p.id, -1, '出庫・消費')}
+                    disabled={p.current_stock <= 0}
+                    className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-700 hover:text-rose-700 border border-slate-200 flex items-center justify-center transition-colors disabled:opacity-30"
+                    title="-1 消費"
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    onClick={() => setSelectedProductForAdjust(p)}
+                    className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 text-xs font-semibold transition-colors"
+                  >
+                    変更
+                  </button>
+
+                  <button
+                    onClick={() => adjustStock(p.id, 1, '入荷・追加')}
+                    className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-700 border border-slate-200 flex items-center justify-center transition-colors"
+                    title="+1 追加"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       ) : (
@@ -209,12 +305,59 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal }) => {
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
                 {filteredProducts.map((p) => (
-                  <ProductTableRow
-                    key={p.id}
-                    product={p}
-                    onAdjustStock={adjustStock}
-                    onSelectProductForAdjust={setSelectedProductForAdjust}
-                  />
+                  <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-3.5">
+                      <div className="flex items-center gap-3">
+                        {p.image_url ? (
+                          <img
+                            src={p.image_url}
+                            alt={p.name}
+                            className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                            <Package className="w-5 h-5" />
+                          </div>
+                        )}
+                        <div>
+                          <span className="font-semibold text-slate-900 block">{p.name}</span>
+                          <span className="font-mono text-[10px] text-slate-400">JAN: {p.jan_code}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-3.5">
+                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700">
+                        {p.location}
+                      </span>
+                    </td>
+                    <td className="p-3.5">{getStockBadge(p.current_stock)}</td>
+                    <td className="p-3.5 text-right font-mono font-bold text-sm text-slate-900">
+                      {p.current_stock}
+                    </td>
+                    <td className="p-3.5">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => adjustStock(p.id, -1, '出庫・消費')}
+                          disabled={p.current_stock <= 0}
+                          className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-700 flex items-center justify-center transition-colors disabled:opacity-30"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setSelectedProductForAdjust(p)}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-100 text-blue-700 text-[11px] font-semibold transition-colors"
+                        >
+                          詳細
+                        </button>
+                        <button
+                          onClick={() => adjustStock(p.id, 1, '入荷・追加')}
+                          className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-emerald-100 text-slate-700 flex items-center justify-center transition-colors"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
                 ))}
               </tbody>
             </table>

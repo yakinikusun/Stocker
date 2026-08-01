@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Product, StockHistory, FilterStockStatus, Location, Tag, Preset } from '../types/stock';
-import { useStockFilter } from '../hooks/useStockFilter';
 import {
   getSupabaseClient,
   loadLocalProducts,
@@ -24,7 +23,6 @@ interface StockContextType {
   tags: Tag[];
   presets: Preset[];
   isLoading: boolean;
-  
   searchTerm: string;
   setSearchTerm: (term: string) => void;
   statusFilter: FilterStockStatus;
@@ -34,8 +32,7 @@ interface StockContextType {
   selectedTagFilter: string;
   setSelectedTagFilter: (tag: string) => void;
   filteredProducts: Product[];
-  clearFilters: () => void;
-
+  
   // Storage locations CRUD
   addLocation: (name: string) => Promise<boolean>;
   deleteLocation: (id: string) => Promise<boolean>;
@@ -67,21 +64,12 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [locations, setLocations] = useState<Location[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [presets, setPresets] = useState<Preset[]>([]);
+  
   const [isLoading, setIsLoading] = useState<boolean>(true);
-
-  // Filtering Hook
-  const {
-    searchTerm,
-    setSearchTerm,
-    statusFilter,
-    setStatusFilter,
-    locationFilter,
-    setLocationFilter,
-    selectedTagFilter,
-    setSelectedTagFilter,
-    filteredProducts,
-    clearFilters
-  } = useStockFilter(products);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<FilterStockStatus>('all');
+  const [locationFilter, setLocationFilter] = useState<string>('all');
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string>('all');
 
   const fetchAllData = useCallback(async () => {
     setIsLoading(true);
@@ -150,7 +138,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const client = getSupabaseClient();
     if (client && isSupabaseActive) {
       const channel = client
-        .channel('public-stock-changes-v5')
+        .channel('public-stock-changes-v3')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchAllData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_history' }, fetchAllData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, fetchAllData)
@@ -163,6 +151,34 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
     }
   }, [isSupabaseActive, fetchAllData]);
+
+  // Multi-criteria Filtering
+  const filteredProducts = products.filter((p) => {
+    // 1. Search term match (Name, JAN Code, Location, Tag)
+    const matchesSearch =
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.jan_code.includes(searchTerm) ||
+      p.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.tags.some(t => t.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    if (!matchesSearch) return false;
+
+    // 2. Location filter
+    if (locationFilter !== 'all' && p.location !== locationFilter) {
+      return false;
+    }
+
+    // 3. Tag filter
+    if (selectedTagFilter !== 'all' && !p.tags.includes(selectedTagFilter)) {
+      return false;
+    }
+
+    // 4. Binary Stock status filter (in_stock: stock > 0, out_of_stock: stock === 0)
+    if (statusFilter === 'in_stock') return p.current_stock > 0;
+    if (statusFilter === 'out_of_stock') return p.current_stock === 0;
+
+    return true;
+  });
 
   const getProductByJanCode = (janCode: string) => {
     return products.find((p) => p.jan_code === janCode);
@@ -369,7 +385,6 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Stock Adjustment with Sequential Log Compression
   const adjustStock = async (productId: string, changeAmount: number, reason: string): Promise<boolean> => {
     const targetProduct = products.find((p) => p.id === productId);
     if (!targetProduct) return false;
@@ -377,8 +392,6 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const newStock = Math.max(0, targetProduct.current_stock + changeAmount);
     const client = getSupabaseClient();
     const now = new Date().toISOString();
-    const selectedReason = reason || (changeAmount >= 0 ? '入荷' : '出庫');
-    const currentUserId = user?.id || 'usr-guest';
 
     if (client && isSupabaseActive) {
       const { error: updateErr } = await client
@@ -395,57 +408,33 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         product_id: productId,
         user_id: user?.id || null,
         change_amount: changeAmount,
-        reason: selectedReason
+        reason: reason || (changeAmount >= 0 ? '入荷' : '出庫')
       }]);
 
       await fetchAllData();
       return true;
     } else {
-      // Local Fallback Storage Mode with Sequential Compression
       const updatedProducts = products.map((p) =>
         p.id === productId ? { ...p, current_stock: newStock, updated_at: now } : p
       );
       setProducts(updatedProducts);
       saveLocalProducts(updatedProducts);
 
-      // Check if the most recent log in histories can be compressed
-      const latestLog = histories[0];
-      const timeDiffMs = latestLog ? Math.abs(new Date(now).getTime() - new Date(latestLog.created_at).getTime()) : Infinity;
-      const isCompressible =
-        latestLog &&
-        latestLog.product_id === productId &&
-        latestLog.user_id === currentUserId &&
-        latestLog.reason === selectedReason &&
-        timeDiffMs <= 10 * 60 * 1000; // Within 10 minutes
+      const historyItem: StockHistory = {
+        id: `hist-${Date.now()}`,
+        product_id: productId,
+        user_id: user?.id || 'usr-guest',
+        change_amount: changeAmount,
+        reason: reason || (changeAmount >= 0 ? '入荷' : '出庫'),
+        created_at: now,
+        product_name: targetProduct.name,
+        jan_code: targetProduct.jan_code,
+        location: targetProduct.location,
+        user_email: user?.email || 'guest@freezer.local',
+        user_name: user?.name || 'ゲスト'
+      };
 
-      let updatedHistories: StockHistory[];
-
-      if (isCompressible) {
-        // Compress by updating change_amount & timestamp of the latest log entry
-        const updatedLatest: StockHistory = {
-          ...latestLog,
-          change_amount: latestLog.change_amount + changeAmount,
-          created_at: now
-        };
-        updatedHistories = [updatedLatest, ...histories.slice(1)];
-      } else {
-        // Create new log entry
-        const historyItem: StockHistory = {
-          id: `hist-${Date.now()}`,
-          product_id: productId,
-          user_id: currentUserId,
-          change_amount: changeAmount,
-          reason: selectedReason,
-          created_at: now,
-          product_name: targetProduct.name,
-          jan_code: targetProduct.jan_code,
-          location: targetProduct.location,
-          user_email: user?.email || 'guest@freezer.local',
-          user_name: user?.name || 'ゲスト'
-        };
-        updatedHistories = [historyItem, ...histories];
-      }
-
+      const updatedHistories = [historyItem, ...histories];
       setHistories(updatedHistories);
       saveLocalHistories(updatedHistories);
 
@@ -487,7 +476,6 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         tags,
         presets,
         isLoading,
-
         searchTerm,
         setSearchTerm,
         statusFilter,
@@ -497,7 +485,6 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         selectedTagFilter,
         setSelectedTagFilter,
         filteredProducts,
-        clearFilters,
 
         addLocation,
         deleteLocation,
