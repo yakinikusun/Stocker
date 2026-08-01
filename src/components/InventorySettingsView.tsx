@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   FolderKanban,
   Tag as TagIcon,
@@ -8,10 +8,13 @@ import {
   Package,
   Layers,
   Sparkles,
-  CheckCircle2
+  CheckCircle2,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 import { useStock } from '../context/StockContext';
 import { Preset } from '../types/stock';
+import { uploadProductImage } from '../lib/supabase';
 
 interface InventorySettingsViewProps {
   onCallPresetToStock: (preset: Preset) => void;
@@ -42,13 +45,24 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
   const [presetJan, setPresetJan] = useState('');
   const [presetLocation, setPresetLocation] = useState('冷蔵庫');
   const [presetTag, setPresetTag] = useState('');
-  const [presetImage, setPresetImage] = useState('');
+  const [presetImageFile, setPresetImageFile] = useState<File | null>(null);
+  const [presetImagePreview, setPresetImagePreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const presetFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const showTempMessage = (msg: string) => {
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(null), 3000);
+  };
+
+  const handlePresetImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setPresetImageFile(file);
+      setPresetImagePreview(URL.createObjectURL(file));
+    }
   };
 
   const handleAddLocationSubmit = async (e: React.FormEvent) => {
@@ -74,18 +88,33 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
   const handleAddPresetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!presetName.trim()) return;
+
+    let imageUrl: string | null = null;
+    if (presetImageFile) {
+      setIsUploading(true);
+      try {
+        imageUrl = await uploadProductImage(presetImageFile);
+      } catch (err) {
+        console.error('Preset image upload failed:', err);
+      } finally {
+        setIsUploading(false);
+      }
+    }
+
     const ok = await addPreset({
       name: presetName.trim(),
       jan_code: presetJan.trim() || undefined,
       location: presetLocation,
       tags: presetTag ? [presetTag] : [],
-      image_url: presetImage.trim() || null
+      image_url: imageUrl
     });
+
     if (ok) {
       showTempMessage(`プリセット「${presetName}」を作成しました。`);
       setPresetName('');
       setPresetJan('');
-      setPresetImage('');
+      setPresetImageFile(null);
+      setPresetImagePreview(null);
     }
   };
 
@@ -240,6 +269,30 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
               </div>
 
               <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">画像アップロード</label>
+                <input
+                  type="file"
+                  ref={presetFileInputRef}
+                  accept="image/*"
+                  onChange={handlePresetImageChange}
+                  className="hidden"
+                />
+                {presetImagePreview ? (
+                  <div className="relative w-full h-24 rounded-lg overflow-hidden border border-slate-300">
+                    <img src={presetImagePreview} alt="プレビュー" className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => presetFileInputRef.current?.click()}
+                    className="w-full h-20 rounded-xl border border-dashed border-slate-300 bg-slate-50 hover:bg-purple-50/50 flex flex-col items-center justify-center cursor-pointer p-2 text-center"
+                  >
+                    <Upload className="w-5 h-5 text-slate-400 mb-1" />
+                    <span className="text-[11px] font-semibold text-slate-600">画像を選択</span>
+                  </div>
+                )}
+              </div>
+
+              <div>
                 <label className="text-xs font-medium text-slate-600 block mb-1">JANコード (任意)</label>
                 <input
                   type="text"
@@ -250,19 +303,9 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                 />
               </div>
 
-              <div>
-                <label className="text-xs font-medium text-slate-600 block mb-1">画像URL (任意)</label>
-                <input
-                  type="url"
-                  placeholder="https://example.com/image.jpg"
-                  value={presetImage}
-                  onChange={(e) => setPresetImage(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none"
-                />
-              </div>
-
               <button
                 type="submit"
+                disabled={isUploading}
                 className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all"
               >
                 <Plus className="w-4 h-4" /> プリセットを登録

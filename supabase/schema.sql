@@ -1,6 +1,6 @@
 -- ===============================================================
--- 在庫管理システム Freezer - Supabase SQL Schema (DDL + RLS Policies)
--- 仕様書: doc/stock-management-spec.md & doc/function-spec.md に基づく定義
+-- 在庫管理システム Freezer - Supabase SQL Schema (DDL + RLS Policies + Storage)
+-- 仕様書: doc/spec.md に基づく定義
 -- ===============================================================
 
 -- 1. 保管場所マスタ (locations)
@@ -89,6 +89,25 @@ CREATE INDEX IF NOT EXISTS idx_stock_history_product_id ON public.stock_history(
 CREATE INDEX IF NOT EXISTS idx_stock_history_created_at ON public.stock_history(created_at DESC);
 
 -- ===============================================================
+-- Supabase Storage バケット設定 (商品画像アップロード用)
+-- ===============================================================
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('product-images', 'product-images', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Storage RLS ポリシー
+CREATE POLICY "authenticated_upload_product_images"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (bucket_id = 'product-images');
+
+CREATE POLICY "public_read_product_images"
+  ON storage.objects FOR SELECT
+  TO public
+  USING (bucket_id = 'product-images');
+
+-- ===============================================================
 -- トリガー機能 (updated_at の自動更新)
 -- ===============================================================
 
@@ -141,7 +160,6 @@ ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stock_history ENABLE ROW LEVEL SECURITY;
 
--- 認証ユーザーアクセス許可ポリシー
 CREATE POLICY "authenticated_all_locations" ON public.locations FOR ALL TO authenticated USING (true);
 CREATE POLICY "authenticated_all_tags" ON public.tags FOR ALL TO authenticated USING (true);
 CREATE POLICY "authenticated_all_presets" ON public.presets FOR ALL TO authenticated USING (true);

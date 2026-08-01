@@ -12,7 +12,7 @@ import {
 
 export function getStoredSupabaseConfig() {
   const url = localStorage.getItem(STORAGE_KEYS.SUPABASE_URL) || import.meta.env.VITE_SUPABASE_URL || '';
-  const anonKey = localStorage.getItem(STORAGE_KEYS.SUPABASE_KEY) || import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+  const anonKey = localStorage.getItem(STORAGE_KEYS.SUPABASE_KEY) || import.meta.env.VITE_SUPABASE_KEY || '';
   return { url, anonKey, isConfigured: Boolean(url && anonKey) };
 }
 
@@ -35,6 +35,84 @@ export function getSupabaseClient(): SupabaseClient | null {
     supabaseInstance = createClient(config.url, config.anonKey);
   }
   return supabaseInstance;
+}
+
+// -------------------------------------------------------------
+// Image Upload & Garbage Collection Cleanup Service
+// -------------------------------------------------------------
+
+export async function uploadProductImage(file: File): Promise<string> {
+  const client = getSupabaseClient();
+
+  if (client && getStoredSupabaseConfig().isConfigured) {
+    const fileExt = file.name.split('.').pop() || 'png';
+    const filePath = `product_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+
+    const { error: uploadError } = await client.storage
+      .from('product-images')
+      .upload(filePath, file, { cacheControl: '3600', upsert: true });
+
+    if (uploadError) {
+      console.warn('Supabase storage upload error, falling back to base64:', uploadError);
+      return readAsDataURL(file);
+    }
+
+    const { data: publicUrlData } = client.storage
+      .from('product-images')
+      .getPublicUrl(filePath);
+
+    return publicUrlData.publicUrl;
+  }
+
+  return readAsDataURL(file);
+}
+
+/**
+ * Extract storage relative object path from public URL
+ */
+export function extractStoragePath(imageUrl: string | null | undefined): string | null {
+  if (!imageUrl) return null;
+  const match = imageUrl.match(/\/storage\/v1\/object\/public\/product-images\/(.+)$/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Delete image file from Supabase Storage if it's no longer used by any product or preset.
+ */
+export async function deleteImageIfOrphaned(
+  imageUrl: string | null | undefined,
+  products: Product[],
+  presets: Preset[]
+): Promise<boolean> {
+  const filePath = extractStoragePath(imageUrl);
+  if (!filePath) return false;
+
+  // Check if any other product or preset still references this image
+  const isUsedInProducts = products.some((p) => p.image_url === imageUrl);
+  const isUsedInPresets = presets.some((pst) => pst.image_url === imageUrl);
+
+  if (!isUsedInProducts && !isUsedInPresets) {
+    const client = getSupabaseClient();
+    if (client && getStoredSupabaseConfig().isConfigured) {
+      const { error } = await client.storage.from('product-images').remove([filePath]);
+      if (error) {
+        console.warn('Failed to delete orphaned storage file:', error);
+      } else {
+        console.log('Successfully deleted unused image from storage:', filePath);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function readAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
 }
 
 // Helper to safely load array from LocalStorage
