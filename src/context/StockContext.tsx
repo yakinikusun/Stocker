@@ -69,7 +69,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [presets, setPresets] = useState<Preset[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Dedicated filtering hook
+  // Filtering Hook
   const {
     searchTerm,
     setSearchTerm,
@@ -150,7 +150,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const client = getSupabaseClient();
     if (client && isSupabaseActive) {
       const channel = client
-        .channel('public-stock-changes-v4')
+        .channel('public-stock-changes-v5')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchAllData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_history' }, fetchAllData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, fetchAllData)
@@ -369,6 +369,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Stock Adjustment with Sequential Log Compression
   const adjustStock = async (productId: string, changeAmount: number, reason: string): Promise<boolean> => {
     const targetProduct = products.find((p) => p.id === productId);
     if (!targetProduct) return false;
@@ -376,6 +377,8 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const newStock = Math.max(0, targetProduct.current_stock + changeAmount);
     const client = getSupabaseClient();
     const now = new Date().toISOString();
+    const selectedReason = reason || (changeAmount >= 0 ? '入荷' : '出庫');
+    const currentUserId = user?.id || 'usr-guest';
 
     if (client && isSupabaseActive) {
       const { error: updateErr } = await client
@@ -392,33 +395,57 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         product_id: productId,
         user_id: user?.id || null,
         change_amount: changeAmount,
-        reason: reason || (changeAmount >= 0 ? '入荷' : '出庫')
+        reason: selectedReason
       }]);
 
       await fetchAllData();
       return true;
     } else {
+      // Local Fallback Storage Mode with Sequential Compression
       const updatedProducts = products.map((p) =>
         p.id === productId ? { ...p, current_stock: newStock, updated_at: now } : p
       );
       setProducts(updatedProducts);
       saveLocalProducts(updatedProducts);
 
-      const historyItem: StockHistory = {
-        id: `hist-${Date.now()}`,
-        product_id: productId,
-        user_id: user?.id || 'usr-guest',
-        change_amount: changeAmount,
-        reason: reason || (changeAmount >= 0 ? '入荷' : '出庫'),
-        created_at: now,
-        product_name: targetProduct.name,
-        jan_code: targetProduct.jan_code,
-        location: targetProduct.location,
-        user_email: user?.email || 'guest@freezer.local',
-        user_name: user?.name || 'ゲスト'
-      };
+      // Check if the most recent log in histories can be compressed
+      const latestLog = histories[0];
+      const timeDiffMs = latestLog ? Math.abs(new Date(now).getTime() - new Date(latestLog.created_at).getTime()) : Infinity;
+      const isCompressible =
+        latestLog &&
+        latestLog.product_id === productId &&
+        latestLog.user_id === currentUserId &&
+        latestLog.reason === selectedReason &&
+        timeDiffMs <= 10 * 60 * 1000; // Within 10 minutes
 
-      const updatedHistories = [historyItem, ...histories];
+      let updatedHistories: StockHistory[];
+
+      if (isCompressible) {
+        // Compress by updating change_amount & timestamp of the latest log entry
+        const updatedLatest: StockHistory = {
+          ...latestLog,
+          change_amount: latestLog.change_amount + changeAmount,
+          created_at: now
+        };
+        updatedHistories = [updatedLatest, ...histories.slice(1)];
+      } else {
+        // Create new log entry
+        const historyItem: StockHistory = {
+          id: `hist-${Date.now()}`,
+          product_id: productId,
+          user_id: currentUserId,
+          change_amount: changeAmount,
+          reason: selectedReason,
+          created_at: now,
+          product_name: targetProduct.name,
+          jan_code: targetProduct.jan_code,
+          location: targetProduct.location,
+          user_email: user?.email || 'guest@freezer.local',
+          user_name: user?.name || 'ゲスト'
+        };
+        updatedHistories = [historyItem, ...histories];
+      }
+
       setHistories(updatedHistories);
       saveLocalHistories(updatedHistories);
 
