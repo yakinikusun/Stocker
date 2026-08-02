@@ -4,7 +4,7 @@ import { Product } from '../types/stock';
 
 interface ProductTableRowProps {
   product: Product;
-  onAdjustStock: (productId: string, amount: number, reason: string) => void;
+  onAdjustStock: (productId: string, amount: number) => void;
   onSelectProductForAdjust: (product: Product) => void;
 }
 
@@ -58,7 +58,7 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
       <td className="p-3.5">
         <div className="flex items-center justify-center gap-1.5">
           <button
-            onClick={() => onAdjustStock(product.id, -1, '出庫・消費')}
+            onClick={() => onAdjustStock(product.id, -1)}
             disabled={product.current_stock <= 0}
             className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-700 flex items-center justify-center transition-colors disabled:opacity-30"
           >
@@ -71,7 +71,7 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
             詳細
           </button>
           <button
-            onClick={() => onAdjustStock(product.id, 1, '入荷・追加')}
+            onClick={() => onAdjustStock(product.id, 1)}
             className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-emerald-100 text-slate-700 flex items-center justify-center transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />

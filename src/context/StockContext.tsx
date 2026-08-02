@@ -52,7 +52,7 @@ interface StockContextType {
 
   // Products & Stock CRUD
   addProduct: (newProd: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => Promise<Product | null>;
-  adjustStock: (productId: string, changeAmount: number, reason: string) => Promise<boolean>;
+  adjustStock: (productId: string, changeAmount: number) => Promise<boolean>;
   deleteProduct: (productId: string) => Promise<boolean>;
   getProductByJanCode: (janCode: string) => Product | undefined;
   resetToDefaultDemoData: () => void;
@@ -114,7 +114,6 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             product_id: h.product_id,
             user_id: h.user_id,
             change_amount: h.change_amount,
-            reason: h.reason,
             created_at: h.created_at,
             product_name: h.products?.name,
             jan_code: h.products?.jan_code,
@@ -151,7 +150,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const client = getSupabaseClient();
     if (client && isSupabaseActive) {
       const channel = client
-        .channel('public-stock-changes-v6')
+        .channel('public-stock-changes-v7')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchAllData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_history' }, fetchAllData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, fetchAllData)
@@ -296,7 +295,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const existing = getProductByJanCode(jan);
 
     if (existing) {
-      await adjustStock(existing.id, stockCount, 'プリセットからの再補充');
+      await adjustStock(existing.id, stockCount);
       return existing;
     } else {
       return await addProduct({
@@ -338,8 +337,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         await client.from('stock_history').insert([{
           product_id: data.id,
           user_id: user?.id || null,
-          change_amount: newProd.current_stock,
-          reason: '新規商品登録'
+          change_amount: newProd.current_stock
         }]);
       }
 
@@ -365,7 +363,6 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           product_id: created.id,
           user_id: user?.id || 'usr-guest',
           change_amount: created.current_stock,
-          reason: '新規商品登録',
           created_at: now,
           product_name: created.name,
           jan_code: created.jan_code,
@@ -382,15 +379,14 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Stock Adjustment with Sequential Log Compression
-  const adjustStock = async (productId: string, changeAmount: number, reason: string): Promise<boolean> => {
+  // Stock Adjustment (No reason parameter)
+  const adjustStock = async (productId: string, changeAmount: number): Promise<boolean> => {
     const targetProduct = products.find((p) => p.id === productId);
     if (!targetProduct) return false;
 
     const newStock = Math.max(0, targetProduct.current_stock + changeAmount);
     const client = getSupabaseClient();
     const now = new Date().toISOString();
-    const selectedReason = reason || (changeAmount >= 0 ? '入荷' : '出庫');
     const currentUserId = user?.id || 'usr-guest';
 
     if (client && isSupabaseActive) {
@@ -407,8 +403,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       await client.from('stock_history').insert([{
         product_id: productId,
         user_id: user?.id || null,
-        change_amount: changeAmount,
-        reason: selectedReason
+        change_amount: changeAmount
       }]);
 
       await fetchAllData();
@@ -426,7 +421,6 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         latestLog &&
         latestLog.product_id === productId &&
         latestLog.user_id === currentUserId &&
-        latestLog.reason === selectedReason &&
         timeDiffMs <= 10 * 60 * 1000;
 
       let updatedHistories: StockHistory[];
@@ -444,7 +438,6 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           product_id: productId,
           user_id: currentUserId,
           change_amount: changeAmount,
-          reason: selectedReason,
           created_at: now,
           product_name: targetProduct.name,
           jan_code: targetProduct.jan_code,

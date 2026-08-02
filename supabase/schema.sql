@@ -81,7 +81,6 @@ CREATE TABLE IF NOT EXISTS public.stock_history (
   product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   change_amount INTEGER NOT NULL,
-  reason TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

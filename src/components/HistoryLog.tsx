@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { History, ShieldCheck, Search, ArrowUpRight, ArrowDownRight, User, Calendar, Tag, Layers } from 'lucide-react';
+import { History, ShieldCheck, Search, ArrowUpRight, ArrowDownRight, User, Calendar, Layers } from 'lucide-react';
 import { useStock } from '../context/StockContext';
 import { StockHistory } from '../types/stock';
 
@@ -8,7 +8,7 @@ export interface CompressedStockHistory extends StockHistory {
 }
 
 /**
- * Group consecutive identical operations (same product, same user, same reason within 10 minutes)
+ * Group consecutive identical operations (same product, same user within 10 minutes)
  * into a single compressed log entry.
  */
 export function compressHistories(histories: StockHistory[]): CompressedStockHistory[] {
@@ -27,10 +27,9 @@ export function compressHistories(histories: StockHistory[]): CompressedStockHis
 
     const isSameProduct = previous.product_id === item.product_id || (previous.product_name === item.product_name && previous.jan_code === item.jan_code);
     const isSameUser = previous.user_id === item.user_id || previous.user_email === item.user_email;
-    const isSameReason = previous.reason === item.reason;
     const isWithinTime = timeDiffMs <= 10 * 60 * 1000; // Within 10 minutes
 
-    if (isSameProduct && isSameUser && isSameReason && isWithinTime) {
+    if (isSameProduct && isSameUser && isWithinTime) {
       previous.change_amount += item.change_amount;
       previous.op_count = (previous.op_count || 1) + 1;
     } else {
@@ -58,14 +57,12 @@ export const HistoryLog: React.FC = () => {
 
       const prodName = (h.product_name || '').toLowerCase();
       const jan = (h.jan_code || '').toLowerCase();
-      const reason = (h.reason || '').toLowerCase();
       const userName = (h.user_name || h.user_email || '').toLowerCase();
       const loc = (h.location || '').toLowerCase();
 
       return (
         prodName.includes(query) ||
         jan.includes(query) ||
-        reason.includes(query) ||
         userName.includes(query) ||
         loc.includes(query)
       );
@@ -97,7 +94,7 @@ export const HistoryLog: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="font-bold text-slate-800 text-sm">在庫操作ログ（自動圧縮機能付き）</h2>
+              <h2 className="font-bold text-slate-800 text-sm">在庫操作ログ</h2>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
                 <ShieldCheck className="w-3 h-3 text-emerald-600" /> RLS保護
               </span>
@@ -113,7 +110,7 @@ export const HistoryLog: React.FC = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="履歴を検索 (商品・理由・担当者・場所)..."
+            placeholder="履歴を検索 (商品・担当者・場所)..."
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500"
@@ -130,15 +127,14 @@ export const HistoryLog: React.FC = () => {
                 <th className="p-3.5">日時</th>
                 <th className="p-3.5">対象商品</th>
                 <th className="p-3.5">保管場所</th>
-                <th className="p-3.5">合計変動</th>
-                <th className="p-3.5">操作理由</th>
+                <th className="p-3.5">変動数量</th>
                 <th className="p-3.5">担当ユーザー</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">
               {filteredHistories.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400">
+                  <td colSpan={5} className="p-8 text-center text-slate-400">
                     操作履歴がありません
                   </td>
                 </tr>
@@ -204,14 +200,6 @@ export const HistoryLog: React.FC = () => {
                             </span>
                           )}
                         </div>
-                      </td>
-
-                      {/* Reason */}
-                      <td className="p-3.5">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 text-[11px]">
-                          <Tag className="w-3 h-3 text-blue-500" />
-                          {h.reason || '手動調整'}
-                        </span>
                       </td>
 
                       {/* User */}
