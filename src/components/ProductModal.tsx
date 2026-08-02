@@ -57,6 +57,23 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     : [];
 
   const isExistingMatch = matchingJanProducts.length > 0;
+  const matchedProduct = isExistingMatch ? matchingJanProducts[0] : null;
+
+  // Sync image preview and tags cleanly when an existing product match is detected
+  useEffect(() => {
+    if (isExistingMatch && matchedProduct) {
+      if (matchedProduct.image_url) {
+        setImagePreview(matchedProduct.image_url);
+        setImageUrl(matchedProduct.image_url);
+      } else {
+        setImagePreview(null);
+        setImageUrl('');
+      }
+      if (matchedProduct.tags) {
+        setSelectedTags(matchedProduct.tags);
+      }
+    }
+  }, [name, janCode, location, isExistingMatch]);
 
   useEffect(() => {
     if (initialJanCode) {
@@ -251,11 +268,36 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           />
         </div>
 
+        {/* Storage Location Selector */}
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+            <FolderKanban className="w-3.5 h-3.5 text-blue-500" /> 保管場所 *
+          </label>
+          <select
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
+          >
+            {locations.map((loc) => (
+              <option key={loc.id} value={loc.name}>
+                {loc.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Image Upload Zone */}
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-            <ImageIcon className="w-3.5 h-3.5 text-blue-600" /> 
-            {isExistingMatch ? '写真・画像プレビュー' : '写真・画像アップロード'}
+          <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+            <span className="flex items-center gap-1">
+              <ImageIcon className="w-3.5 h-3.5 text-blue-600" /> 
+              {isExistingMatch ? '写真・画像プレビュー' : '写真・画像アップロード'}
+            </span>
+            {isExistingMatch && (
+              <span className="text-[10px] text-amber-700 font-semibold flex items-center gap-1 bg-amber-100 px-2 py-0.5 rounded-full">
+                <Lock className="w-3 h-3" /> 登録済み情報 (編集不可)
+              </span>
+            )}
           </label>
           
           <input
@@ -296,17 +338,16 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               )}
             </div>
           ) : (
-            <div>
+            <div className="w-full h-24 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center p-3 text-center">
               {isExistingMatch ? (
-                <div className="w-full h-24 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center p-3 text-center">
-                  <span className="text-xs font-semibold text-slate-600">
-                    NO IMAGE
-                  </span>
+                <div className="flex flex-col items-center justify-center text-slate-400">
+                  <Package className="w-8 h-8 mb-1" />
+                  <span className="text-xs font-medium">画像未登録</span>
                 </div>
               ) : (
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full h-24 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-blue-50/50 hover:border-blue-400 transition-all flex flex-col items-center justify-center cursor-pointer p-3 text-center"
+                  className="w-full h-full flex flex-col items-center justify-center cursor-pointer"
                 >
                   <Upload className="w-6 h-6 text-slate-400 mb-1" />
                   <span className="text-xs font-semibold text-slate-600">
@@ -319,24 +360,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               )}
             </div>
           )}
-        </div>
-
-        {/* Storage Location Selector */}
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-            <FolderKanban className="w-3.5 h-3.5 text-blue-500" /> 保管場所 *
-          </label>
-          <select
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
-          >
-            {locations.map((loc) => (
-              <option key={loc.id} value={loc.name}>
-                {loc.name}
-              </option>
-            ))}
-          </select>
         </div>
 
         {/* JAN Code Field */}
@@ -377,52 +400,75 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           />
         </div>
 
-        {/* Tag Selector (Dropdown + Checkboxes) */}
+        {/* Tag Selector / Display */}
         <div className="space-y-1 relative" ref={tagDropdownRef}>
-          <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-            <TagIcon className="w-3.5 h-3.5 text-amber-500" /> 分類タグ (ドロップダウン選択)
-          </label>
-          
-          <button
-            type="button"
-            onClick={() => {
-              if (!isExistingMatch) setIsTagDropdownOpen(!isTagDropdownOpen);
-            }}
-            className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-left flex items-center justify-between"
-          >
-            <span className="truncate">
-              {selectedTags.length === 0
-                ? '未選択 (クリックして選択)'
-                : `${selectedTags.join(', ')} (${selectedTags.length}件選択中)`}
+          <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+            <span className="flex items-center gap-1">
+              <TagIcon className="w-3.5 h-3.5 text-amber-500" /> 分類タグ
             </span>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-          </button>
+            {isExistingMatch && (
+              <span className="text-[10px] text-amber-700 font-semibold flex items-center gap-1 bg-amber-100 px-2 py-0.5 rounded-full">
+                <Lock className="w-3 h-3" /> 登録済み情報 (編集不可)
+              </span>
+            )}
+          </label>
 
-          {isTagDropdownOpen && !isExistingMatch && (
-            <div className="absolute top-full left-0 right-0 mt-1 z-20 p-2 rounded-xl bg-white border border-slate-200 shadow-xl max-h-48 overflow-y-auto space-y-1">
-              {tags.map((t) => {
-                const isChecked = selectedTags.includes(t.name);
-                return (
-                  <label
-                    key={t.id}
-                    className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer text-xs"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => toggleTag(t.name)}
-                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="font-medium text-slate-800">#{t.name}</span>
-                  </label>
-                );
-              })}
+          {isExistingMatch ? (
+            /* Read-Only Display of Attached Tags for Existing Product */
+            <div className="p-2.5 rounded-xl bg-slate-100 border border-slate-200 flex flex-wrap gap-1.5 min-h-[38px] items-center">
+              {matchedProduct?.tags && matchedProduct.tags.length > 0 ? (
+                matchedProduct.tags.map((t) => (
+                  <span key={t} className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-slate-700 border border-slate-200 shadow-2xs">
+                    #{t}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-slate-400 font-medium">タグ未設定</span>
+              )}
             </div>
+          ) : (
+            /* Editable Tag Selector Dropdown for New Product */
+            <>
+              <button
+                type="button"
+                onClick={() => setIsTagDropdownOpen(!isTagDropdownOpen)}
+                className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-left flex items-center justify-between"
+              >
+                <span className="truncate">
+                  {selectedTags.length === 0
+                    ? '未選択 (クリックして選択)'
+                    : `${selectedTags.join(', ')} (${selectedTags.length}件選択中)`}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              </button>
+
+              {isTagDropdownOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1 z-20 p-2 rounded-xl bg-white border border-slate-200 shadow-xl max-h-48 overflow-y-auto space-y-1">
+                  {tags.map((t) => {
+                    const isChecked = selectedTags.includes(t.name);
+                    return (
+                      <label
+                        key={t.id}
+                        className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer text-xs"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleTag(t.name)}
+                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="font-medium text-slate-800">#{t.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
 
-        {/* Save to Preset Checkbox (Only shown if current product doesn't match an existing preset or existing match) */}
-        {!matchedPreset && !isExistingMatch && (
+        {/* Save to Preset Checkbox */}
+        {!matchedPreset && (
           <div className="pt-2">
             <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-purple-900 bg-purple-50 p-2.5 rounded-xl border border-purple-200">
               <input
