@@ -11,9 +11,9 @@ import {
   CheckCircle2,
   Upload,
   Pencil,
-  X,
   Check,
-  Loader2
+  Loader2,
+  Image as ImageIcon
 } from 'lucide-react';
 import { useStock } from '../context/StockContext';
 import { useAuth } from '../context/AuthContext';
@@ -45,32 +45,33 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
 
   const [activeSubTab, setActiveSubTab] = useState<'locations' | 'presets' | 'tags'>('locations');
 
-  // Shared FormModal open states
+  // Shared FormModal open states (Addition)
   const [isAddLocationModalOpen, setIsAddLocationModalOpen] = useState(false);
   const [isAddTagModalOpen, setIsAddTagModalOpen] = useState(false);
   const [isAddPresetModalOpen, setIsAddPresetModalOpen] = useState(false);
 
-  // Location input & Edit states
-  const [newLocationName, setNewLocationName] = useState('');
+  // Shared FormModal open states (Editing)
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [editLocationName, setEditLocationName] = useState('');
 
-  // Tag input & Edit states
-  const [newTagName, setNewTagName] = useState('');
-  const [newTagColor, setNewTagColor] = useState('#3b82f6');
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
   const [editTagName, setEditTagName] = useState('');
 
-  // Preset input & Edit states
+  const [editingPreset, setEditingPreset] = useState<Preset | null>(null);
+  const [editPresetName, setEditPresetName] = useState('');
+  const [editPresetJan, setEditPresetJan] = useState('');
+  const [editPresetImageFile, setEditPresetImageFile] = useState<File | null>(null);
+  const [editPresetImagePreview, setEditPresetImagePreview] = useState<string | null>(null);
+
+  // Addition Input states
+  const [newLocationName, setNewLocationName] = useState('');
+  const [newTagName, setNewTagName] = useState('');
+
   const [presetName, setPresetName] = useState('');
   const [presetJan, setPresetJan] = useState('');
   const [presetTag, setPresetTag] = useState('');
   const [presetImageFile, setPresetImageFile] = useState<File | null>(null);
   const [presetImagePreview, setPresetImagePreview] = useState<string | null>(null);
-
-  const [editingPreset, setEditingPreset] = useState<Preset | null>(null);
-  const [editPresetName, setEditPresetName] = useState('');
-  const [editPresetJan, setEditPresetJan] = useState('');
 
   // Preset Call Modal
   const [selectedPresetForCall, setSelectedPresetForCall] = useState<Preset | null>(null);
@@ -80,6 +81,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
   const [isUploading, setIsUploading] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const presetFileInputRef = useRef<HTMLInputElement | null>(null);
+  const editPresetFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const showTempMessage = (msg: string) => {
     setSuccessMsg(msg);
@@ -91,6 +93,14 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
       const file = e.target.files[0];
       setPresetImageFile(file);
       setPresetImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleEditPresetImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setEditPresetImageFile(file);
+      setEditPresetImagePreview(URL.createObjectURL(file));
     }
   };
 
@@ -120,7 +130,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
   const handleAddTagSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTagName.trim()) return;
-    const ok = await addTag(newTagName.trim(), newTagColor);
+    const ok = await addTag(newTagName.trim());
     if (ok) {
       showTempMessage(`タグ「${newTagName}」を追加しました。`);
       setNewTagName('');
@@ -176,14 +186,30 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
     e.preventDefault();
     if (!editingPreset || !editPresetName.trim()) return;
 
+    let finalImageUrl = editPresetImagePreview;
+
+    if (editPresetImageFile) {
+      setIsUploading(true);
+      try {
+        finalImageUrl = await uploadProductImage(editPresetImageFile);
+      } catch (err) {
+        console.error('Preset edit image upload failed:', err);
+      } finally {
+        setIsUploading(false);
+      }
+    }
+
     const ok = await updatePreset(editingPreset.id, {
       name: editPresetName.trim(),
-      jan_code: editPresetJan.trim() || undefined
+      jan_code: editPresetJan.trim() || undefined,
+      image_url: finalImageUrl
     });
 
     if (ok) {
       showTempMessage(`プリセット「${editPresetName}」を更新しました。`);
       setEditingPreset(null);
+      setEditPresetImageFile(null);
+      setEditPresetImagePreview(null);
     }
   };
 
@@ -210,7 +236,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
             </p>
           </div>
 
-          {/* Shared Modal Trigger Buttons */}
+          {/* Action Trigger Buttons */}
           {activeSubTab === 'locations' && (
             <button
               onClick={() => setIsAddLocationModalOpen(true)}
@@ -281,7 +307,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
         </div>
       )}
 
-      {/* SubTab 1: Storage Locations Full Width List */}
+      {/* SubTab 1: Storage Locations */}
       {activeSubTab === 'locations' && (
         <div className="clean-card p-5 space-y-4">
           <div className="flex items-center justify-between">
@@ -295,70 +321,48 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {locations.map((loc) => {
-              const isEditing = editingLocation?.id === loc.id;
-              return (
-                <div
-                  key={loc.id}
-                  className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between group"
-                >
-                  {isEditing ? (
-                    <form onSubmit={handleUpdateLocationSubmit} className="flex items-center gap-2 flex-1">
-                      <input
-                        type="text"
-                        value={editLocationName}
-                        onChange={(e) => setEditLocationName(e.target.value)}
-                        className="flex-1 px-2.5 py-1 text-xs rounded-lg border border-blue-500 focus:outline-none"
-                      />
-                      <button type="submit" className="p-1 text-emerald-600 hover:bg-emerald-50 rounded">
-                        <Check className="w-4 h-4" />
-                      </button>
-                      <button type="button" onClick={() => setEditingLocation(null)} className="p-1 text-slate-400 hover:bg-slate-200 rounded">
-                        <X className="w-4 h-4" />
-                      </button>
-                    </form>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-2.5">
-                        <FolderKanban className="w-4 h-4 text-blue-500" />
-                        <span className="text-xs font-semibold text-slate-800">{loc.name}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => {
-                            setEditingLocation(loc);
-                            setEditLocationName(loc.name);
-                          }}
-                          className="p-1 text-slate-400 hover:text-blue-600 transition-colors"
-                          title="編集"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
+            {locations.map((loc) => (
+              <div
+                key={loc.id}
+                className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <FolderKanban className="w-4 h-4 text-blue-500" />
+                  <span className="text-xs font-semibold text-slate-800">{loc.name}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => {
+                      setEditingLocation(loc);
+                      setEditLocationName(loc.name);
+                    }}
+                    className="p-1 text-slate-400 hover:text-blue-600 transition-colors"
+                    title="編集 (モーダル表示)"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
 
-                        {user?.role === 'admin' && (
-                          <button
-                            onClick={() => {
-                              if (confirm(`保管場所「${loc.name}」を削除しますか？`)) {
-                                deleteLocation(loc.id);
-                              }
-                            }}
-                            className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
-                            title="削除 (管理者のみ)"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </>
+                  {user?.role === 'admin' && (
+                    <button
+                      onClick={() => {
+                        if (confirm(`保管場所「${loc.name}」を削除しますか？`)) {
+                          deleteLocation(loc.id);
+                        }
+                      }}
+                      className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
+                      title="削除 (管理者のみ)"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   )}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* SubTab 2: Presets Full Width List */}
+      {/* SubTab 2: Presets */}
       {activeSubTab === 'presets' && (
         <div className="clean-card p-5 space-y-4">
           <div className="flex items-center justify-between">
@@ -372,109 +376,78 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {presets.map((pst) => {
-              const isEditing = editingPreset?.id === pst.id;
-
-              return (
-                <div
-                  key={pst.id}
-                  className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-start justify-between gap-3 group"
-                >
-                  {isEditing ? (
-                    <form onSubmit={handleUpdatePresetSubmit} className="space-y-2 w-full">
-                      <input
-                        type="text"
-                        required
-                        value={editPresetName}
-                        onChange={(e) => setEditPresetName(e.target.value)}
-                        className="w-full px-2.5 py-1 text-xs rounded-lg border border-purple-500 focus:outline-none"
-                      />
-                      <input
-                        type="text"
-                        placeholder="JANコード (任意)"
-                        value={editPresetJan}
-                        onChange={(e) => setEditPresetJan(e.target.value)}
-                        className="w-full px-2 py-1 text-[11px] font-mono rounded-lg border border-slate-300"
-                      />
-                      <div className="flex justify-end gap-1.5 pt-1">
-                        <button type="button" onClick={() => setEditingPreset(null)} className="px-2.5 py-1 text-[11px] rounded border border-slate-300">
-                          キャンセル
-                        </button>
-                        <button type="submit" className="px-2.5 py-1 text-[11px] rounded bg-purple-600 text-white font-semibold">
-                          更新
-                        </button>
-                      </div>
-                    </form>
+            {presets.map((pst) => (
+              <div
+                key={pst.id}
+                className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-start justify-between gap-3 group"
+              >
+                <div className="flex items-start gap-3 min-w-0">
+                  {pst.image_url ? (
+                    <img
+                      src={pst.image_url}
+                      alt={pst.name}
+                      className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
+                    />
                   ) : (
-                    <>
-                      <div className="flex items-start gap-3 min-w-0">
-                        {pst.image_url ? (
-                          <img
-                            src={pst.image_url}
-                            alt={pst.name}
-                            className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500 shrink-0">
-                            <Package className="w-6 h-6" />
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <h4 className="font-semibold text-xs text-slate-800 truncate">{pst.name}</h4>
-                          {pst.jan_code && (
-                            <p className="font-mono text-[10px] text-slate-400 mt-1">JAN: {pst.jan_code}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col items-end gap-2 shrink-0">
-                        <button
-                          onClick={() => {
-                            setSelectedPresetForCall(pst);
-                            setCallLocation(locations[0]?.name || '冷蔵庫');
-                            setCallQuantity(1);
-                          }}
-                          className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-semibold shadow-sm flex items-center gap-1 transition-all"
-                          title="場所・個数を指定して在庫に追加"
-                        >
-                          <Sparkles className="w-3 h-3" /> 在庫に追加
-                        </button>
-                        
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => {
-                              setEditingPreset(pst);
-                              setEditPresetName(pst.name);
-                              setEditPresetJan(pst.jan_code || '');
-                            }}
-                            className="text-slate-400 hover:text-purple-600 transition-colors p-1"
-                            title="編集"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (confirm(`プリセット「${pst.name}」を削除しますか？`)) {
-                                deletePreset(pst.id);
-                              }
-                            }}
-                            className="text-slate-400 hover:text-rose-600 transition-colors p-1"
-                            title="削除"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    </>
+                    <div className="w-12 h-12 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500 shrink-0">
+                      <Package className="w-6 h-6" />
+                    </div>
                   )}
+                  <div className="min-w-0">
+                    <h4 className="font-semibold text-xs text-slate-800 truncate">{pst.name}</h4>
+                    {pst.jan_code && (
+                      <p className="font-mono text-[10px] text-slate-400 mt-1">JAN: {pst.jan_code}</p>
+                    )}
+                  </div>
                 </div>
-              );
-            })}
+
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <button
+                    onClick={() => {
+                      setSelectedPresetForCall(pst);
+                      setCallLocation(locations[0]?.name || '冷蔵庫');
+                      setCallQuantity(1);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-semibold shadow-sm flex items-center gap-1 transition-all"
+                    title="場所・個数を指定して在庫に追加"
+                  >
+                    <Sparkles className="w-3 h-3" /> 在庫に追加
+                  </button>
+                  
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        setEditingPreset(pst);
+                        setEditPresetName(pst.name);
+                        setEditPresetJan(pst.jan_code || '');
+                        setEditPresetImagePreview(pst.image_url || null);
+                        setEditPresetImageFile(null);
+                      }}
+                      className="text-slate-400 hover:text-purple-600 transition-colors p-1"
+                      title="編集 (モーダル表示)"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm(`プリセット「${pst.name}」を削除しますか？`)) {
+                          deletePreset(pst.id);
+                        }
+                      }}
+                      className="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                      title="削除"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* SubTab 3: Tags Full Width List */}
+      {/* SubTab 3: Tags */}
       {activeSubTab === 'tags' && (
         <div className="clean-card p-5 space-y-4">
           <div className="flex items-center justify-between">
@@ -488,66 +461,216 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
           </div>
 
           <div className="flex flex-wrap gap-2.5">
-            {tags.map((t) => {
-              const isEditing = editingTag?.id === t.id;
-
-              return (
-                <div
-                  key={t.id}
-                  className="px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 flex items-center gap-2"
+            {tags.map((t) => (
+              <div
+                key={t.id}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 flex items-center gap-2"
+              >
+                <TagIcon className="w-3.5 h-3.5 text-amber-500" />
+                <span className="text-xs font-semibold text-slate-700">{t.name}</span>
+                <button
+                  onClick={() => {
+                    setEditingTag(t);
+                    setEditTagName(t.name);
+                  }}
+                  className="text-slate-400 hover:text-amber-600 transition-colors ml-1 p-0.5"
+                  title="編集 (モーダル表示)"
                 >
-                  {isEditing ? (
-                    <form onSubmit={handleUpdateTagSubmit} className="flex items-center gap-1">
-                      <input
-                        type="text"
-                        value={editTagName}
-                        onChange={(e) => setEditTagName(e.target.value)}
-                        className="px-2 py-0.5 text-xs rounded border border-amber-500 focus:outline-none"
-                      />
-                      <button type="submit" className="p-0.5 text-emerald-600">
-                        <Check className="w-3.5 h-3.5" />
-                      </button>
-                      <button type="button" onClick={() => setEditingTag(null)} className="p-0.5 text-slate-400">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </form>
-                  ) : (
-                    <>
-                      <TagIcon className="w-3.5 h-3.5 text-amber-500" />
-                      <span className="text-xs font-semibold text-slate-700">{t.name}</span>
-                      <button
-                        onClick={() => {
-                          setEditingTag(t);
-                          setEditTagName(t.name);
-                        }}
-                        className="text-slate-400 hover:text-amber-600 transition-colors ml-1"
-                        title="編集"
-                      >
-                        <Pencil className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm(`タグ「${t.name}」を削除しますか？`)) {
-                            deleteTag(t.id);
-                          }
-                        }}
-                        className="text-slate-400 hover:text-rose-600 transition-colors"
-                        title="削除"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </>
-                  )}
-                </div>
-              );
-            })}
+                  <Pencil className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm(`タグ「${t.name}」を削除しますか？`)) {
+                      deleteTag(t.id);
+                    }
+                  }}
+                  className="text-slate-400 hover:text-rose-600 transition-colors p-0.5"
+                  title="削除"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
       {/* =============================================================== */}
-      {/* Shared FormModal 1: Add Location */}
+      {/* 1. Modal: Edit Storage Location */}
       {/* =============================================================== */}
+      <FormModal
+        isOpen={Boolean(editingLocation)}
+        onClose={() => setEditingLocation(null)}
+        title="保管場所の編集"
+        icon={<Pencil className="w-4 h-4 text-blue-600" />}
+        maxWidth="sm"
+      >
+        <form onSubmit={handleUpdateLocationSubmit} className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">保管場所名 *</label>
+            <input
+              type="text"
+              required
+              value={editLocationName}
+              onChange={(e) => setEditLocationName(e.target.value)}
+              className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setEditingLocation(null)}
+              className="flex-1 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-100"
+            >
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              className="flex-1 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center justify-center gap-1 shadow-sm"
+            >
+              <Check className="w-4 h-4" /> 変更を保存
+            </button>
+          </div>
+        </form>
+      </FormModal>
+
+      {/* =============================================================== */}
+      {/* 2. Modal: Edit Tag */}
+      {/* =============================================================== */}
+      <FormModal
+        isOpen={Boolean(editingTag)}
+        onClose={() => setEditingTag(null)}
+        title="タグの編集"
+        icon={<Pencil className="w-4 h-4 text-amber-600" />}
+        maxWidth="sm"
+      >
+        <form onSubmit={handleUpdateTagSubmit} className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">タグ名 *</label>
+            <input
+              type="text"
+              required
+              value={editTagName}
+              onChange={(e) => setEditTagName(e.target.value)}
+              className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-amber-500"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setEditingTag(null)}
+              className="flex-1 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-100"
+            >
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              className="flex-1 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold flex items-center justify-center gap-1 shadow-sm"
+            >
+              <Check className="w-4 h-4" /> 変更を保存
+            </button>
+          </div>
+        </form>
+      </FormModal>
+
+      {/* =============================================================== */}
+      {/* 3. Modal: Edit Preset (Includes Image Upload / Change) */}
+      {/* =============================================================== */}
+      <FormModal
+        isOpen={Boolean(editingPreset)}
+        onClose={() => setEditingPreset(null)}
+        title="プリセットの編集"
+        icon={<Pencil className="w-4 h-4 text-purple-600" />}
+        maxWidth="md"
+      >
+        <form onSubmit={handleUpdatePresetSubmit} className="space-y-3 text-slate-800">
+          <div>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">商品テンプレート名 *</label>
+            <input
+              type="text"
+              required
+              value={editPresetName}
+              onChange={(e) => setEditPresetName(e.target.value)}
+              className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-purple-500"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-700 flex items-center gap-1 mb-1">
+              <ImageIcon className="w-3.5 h-3.5 text-purple-600" /> プリセット画像の変更
+            </label>
+            <input
+              type="file"
+              ref={editPresetFileInputRef}
+              accept="image/*"
+              onChange={handleEditPresetImageChange}
+              className="hidden"
+            />
+            {editPresetImagePreview ? (
+              <div className="relative w-full h-32 rounded-xl overflow-hidden border border-slate-300 group">
+                <img src={editPresetImagePreview} alt="プレビュー" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => editPresetFileInputRef.current?.click()}
+                    className="px-3 py-1 text-xs bg-white font-semibold rounded-lg"
+                  >
+                    変更
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditPresetImageFile(null);
+                      setEditPresetImagePreview(null);
+                    }}
+                    className="px-3 py-1 text-xs bg-rose-600 text-white font-semibold rounded-lg"
+                  >
+                    削除
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => editPresetFileInputRef.current?.click()}
+                className="w-full h-20 rounded-xl border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center gap-2 cursor-pointer text-xs font-semibold text-slate-600"
+              >
+                <Upload className="w-4 h-4" /> 画像をアップロード
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">JANコード (任意)</label>
+            <input
+              type="text"
+              value={editPresetJan}
+              onChange={(e) => setEditPresetJan(e.target.value)}
+              className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 font-mono focus:outline-none focus:border-purple-500"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setEditingPreset(null)}
+              className="flex-1 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-100"
+            >
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              disabled={isUploading}
+              className="flex-1 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold flex items-center justify-center gap-1 shadow-sm"
+            >
+              {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} 変更を保存
+            </button>
+          </div>
+        </form>
+      </FormModal>
+
+      {/* Shared FormModal 4: Add Location */}
       <FormModal
         isOpen={isAddLocationModalOpen}
         onClose={() => setIsAddLocationModalOpen(false)}
@@ -586,9 +709,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
         </form>
       </FormModal>
 
-      {/* =============================================================== */}
-      {/* Shared FormModal 2: Add Preset */}
-      {/* =============================================================== */}
+      {/* Shared FormModal 5: Add Preset */}
       <FormModal
         isOpen={isAddPresetModalOpen}
         onClose={() => setIsAddPresetModalOpen(false)}
@@ -663,9 +784,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
         </form>
       </FormModal>
 
-      {/* =============================================================== */}
-      {/* Shared FormModal 3: Add Tag */}
-      {/* =============================================================== */}
+      {/* Shared FormModal 6: Add Tag */}
       <FormModal
         isOpen={isAddTagModalOpen}
         onClose={() => setIsAddTagModalOpen(false)}
@@ -704,7 +823,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
         </form>
       </FormModal>
 
-      {/* Shared FormModal 4: Preset Call Modal */}
+      {/* Shared FormModal 7: Preset Call Modal */}
       <FormModal
         isOpen={Boolean(selectedPresetForCall)}
         onClose={() => setSelectedPresetForCall(null)}
