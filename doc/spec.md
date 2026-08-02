@@ -1,4 +1,4 @@
-# 冷蔵庫・在庫管理システム「Freezer」統合仕様書
+# 冷蔵庫・在庫管理システム「Freezer」統合技術仕様書
 
 ## 1. システム概要
 
@@ -11,26 +11,86 @@
 
 ---
 
-## 2. スコープ
+## 2. 実装スコープ ＆ ルール仕様
 
-### 入力必須要件・判定ルール（確定）
+### 2.1 入力必須要件 ＆ 判定ルール
 - **商品名のみ必須**: 在庫登録および編集において、必須入力項目は「商品名」のみです。
-- **JANコードは完全任意**: バーコードを持たない生鮮食品や自家製品等のため、JANコードの入力は任意（なし）として扱います。ダミー文字列の付与も行いません。
-- **重複加算判定**: 在庫追加時、JANコード（入力されている場合）および商品名・保管場所が一致する場合に既存の在庫へ自動加算します。JANコードがない商品は商品名・保管場所で判別・保存されます。
+- **JANコードは完全任意**: バーコードを持たない生鮮食品や自家製品等のため、JANコードの入力は任意（空欄可）として扱います。ダミー文字列の自動付与は行いません。
+- **重複加算判定**: 在庫追加時、JANコード（入力されている場合）および商品名・保管場所が一致する場合に既存の在庫へ自動加算します。JANコードがない商品は商品名・保管場所で判別・加算されます。
+- **非負クランプ**: 在庫数は 0 未満に減らす操作（マイナス在庫）を防止します。
+
+### 2.2 マスタ管理 ＆ モーダル対応
+- **保管場所・タグ・プリセットの追加・編集モーダル化**:
+  - 保管場所、分類タグ、在庫プリセットの新規追加は、それぞれの「+ 追加」ボタンからポップアップモーダルで行います。
+  - 保管場所・タグ・プリセットのインライン編集・修正に対応。
+  - 保管場所の削除は管理者 (`admin`) のみ許可。
+
+### 2.3 ログ ＆ 履歴追跡
+- **100%確実な履歴記録 (スナップショット方式)**:
+  - `stock_history` テーブルには操作時点の `product_name`（商品名）、`location`（保管場所）、`jan_code`（JANコードまたは空欄）をスナップショットとして保存。
+  - 商品が削除された後やJANコードが存在しない商品でも、過去ログの表示が崩れず完全に閲覧可能。
+- **連続操作の自動圧縮**:
+  - 同一ユーザーによる同一商品・同一場所での 10 分以内の連続操作は、1つのログ行に「N回合算」として自動圧縮集計表示。
 
 ---
 
-## 3. データモデル (テーブル ＆ ストレージ構造)
+## 3. アーキテクチャ
 
-### 3.1 `products`（商品マスタ）
+```
+[スマホ (iOS/Android) / PC ブラウザ / PWA]
+        ↓ HTTPS (Vite + React 19 + TypeScript)
+[Vite SPA + Tailwind CSS]
+        ↓ @supabase/supabase-js SDK / LocalStorage Fallback
+[Supabase Cloud / PostgreSQL Database]
+  ├─ PostgreSQL (products, stock_history, locations, tags, presets, profiles)
+  ├─ Storage (product-images バケット - 商品画像アップロード)
+  ├─ Auth (JWT / Role ベースアクセス制御)
+  └─ Realtime (複数端末間でのリアルタイム同期)
+```
+
+---
+
+## 4. データモデル (テーブル定義)
+
+### 4.1 `products`（商品マスタ）
 | カラム | 型 | 備考 |
 |---|---|---|
 | id | uuid | PK |
 | jan_code | text | バーコード値（任意 / 空欄可） |
 | name | text | 商品名（必須） |
-| image_url | text | 画像URL（任意） |
+| image_url | text | 画像URL（Supabase Storage または Base64） |
 | current_stock | integer | 現在数量 (>= 0) |
-| location | text | 保管場所（必須） |
-| tags | text[] | タグ配列（任意） |
+| location | text | 保管場所（例: 冷蔵庫） |
+| tags | text[] | 分類タグ配列 |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
+
+### 4.2 `stock_history`（在庫操作履歴ログ）
+| カラム | 型 | 備考 |
+|---|---|---|
+| id | uuid | PK |
+| product_id | uuid | FK → products (ON DELETE SET NULL) |
+| user_id | uuid | FK → auth.users (ON DELETE SET NULL) |
+| change_amount | integer | 増減数量 (+/-) |
+| product_name | text | 記録時点の商品名スナップショット |
+| jan_code | text | 記録時点のJANコード |
+| location | text | 記録時点の保管場所 |
+| created_at | timestamptz | 記録日時 |
+
+### 4.3 `locations`, `tags`, `presets`, `profiles`
+- `locations`: 保管場所マスタ (`id`, `name`)
+- `tags`: 分類タグマスタ (`id`, `name`, `color`)
+- `presets`: 再補充用汎用プリセット (`id`, `name`, `jan_code`, `image_url`, `tags`)
+- `profiles`: ユーザー権限プロファイル (`id`, `email`, `name`, `role`)
+
+---
+
+## 5. ユーザー権限マトリクス
+
+| 機能 | 一般ユーザー (`member`) | 管理者 (`admin`) |
+|---|---|---|
+| 在庫閲覧・マルチタグ検索・ソート | 〇 | 〇 |
+| 在庫追加・増減・編集・削除（0ログ自重記録） | 〇 | 〇 |
+| 保管場所・タグ・プリセット追加・編集 | 〇 | 〇 |
+| 保管場所の削除 | ✕ | 〇 |
+| Supabase クラウド接続設定の変更 | ✕ | 〇 |
