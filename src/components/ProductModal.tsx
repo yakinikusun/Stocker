@@ -235,18 +235,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           </div>
         )}
 
-        {/* Dynamic Alert Banner when Product Already Exists */}
-        {isExistingMatch && (
-          <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
-              <CheckCircle2 className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>同名・同JANの既存在庫が {matchingJanProducts.length} 件見つかりました</span>
-            </div>
-            <p className="text-[11px] text-amber-800">
-              「在庫を追加」ボタンをクリックすると既存商品に {currentStock} 個加算されます。
-            </p>
-          </div>
-        )}
+
 
         {/* Product Name */}
         <div className="space-y-1">
