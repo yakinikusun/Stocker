@@ -66,7 +66,7 @@ const AppContent: React.FC = () => {
       </main>
 
       {/* Clean Footer */}
-      <footer className="mt-12 py-6 border-t border-slate-200 text-slate-500 text-xs text-center bg-white">
+      {/* <footer className="mt-12 py-6 border-t border-slate-200 text-slate-500 text-xs text-center bg-white">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 font-semibold text-slate-700">
             <Refrigerator className="w-4 h-4 text-blue-600" />
@@ -76,7 +76,7 @@ const AppContent: React.FC = () => {
             完全招待制・家庭用モデル / Cloudflare Pages & Supabase RLS
           </p>
         </div>
-      </footer>
+      </footer> */}
 
       {/* Modals */}
       <BarcodeScanner

@@ -37,7 +37,6 @@ export interface StockHistory {
   product_id: string;
   user_id: string;
   change_amount: number;
-  reason: string;
   created_at: string;
   // Joined fields for display
   product_name?: string;

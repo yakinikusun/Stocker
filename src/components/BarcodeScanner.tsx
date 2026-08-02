@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
-import { Camera, X, RefreshCw, Zap, CheckCircle2, AlertCircle, PlusCircle, Package } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Camera, X, Check, Package, AlertCircle, Plus, Minus, Search, Play, Square } from 'lucide-react';
+import { BrowserMultiFormatReader } from '@zxing/browser';
 import { useStock } from '../context/StockContext';
 import { Product } from '../types/stock';
 
@@ -17,7 +17,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   onScanResult,
   onOpenAddModalWithJan
 }) => {
-  const { products, getProductByJanCode, adjustStock } = useStock();
+  const { getProductByJanCode, adjustStock } = useStock();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
 
@@ -29,15 +29,15 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const [quickAdjustSuccess, setQuickAdjustSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen) {
+      codeReaderRef.current = new BrowserMultiFormatReader();
+      startCamera();
+    } else {
       stopCamera();
       setScannedJan(null);
       setMatchedProduct(null);
       setCameraError(null);
-      return;
     }
-
-    startCamera();
 
     return () => {
       stopCamera();
@@ -49,24 +49,9 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     setIsScanning(true);
 
     try {
-      if (!codeReaderRef.current) {
-        codeReaderRef.current = new BrowserMultiFormatReader();
-      }
-
-      const videoInputDevices = await codeReaderRef.current.listVideoInputDevices();
-      if (!videoInputDevices || videoInputDevices.length === 0) {
-        setCameraError('利用可能なカメラが見つかりません。以下よりJANコードを直接入力するかテスト用コードをご利用ください。');
-        setIsScanning(false);
-        return;
-      }
-
-      const backCamera = videoInputDevices.find(device =>
-        device.label.toLowerCase().includes('back') || device.label.toLowerCase().includes('rear')
-      ) || videoInputDevices[0];
-
-      if (videoRef.current) {
-        codeReaderRef.current.decodeFromVideoDevice(
-          backCamera.deviceId,
+      if (videoRef.current && codeReaderRef.current) {
+        await codeReaderRef.current.decodeFromVideoDevice(
+          undefined,
           videoRef.current,
           (result, err) => {
             if (result) {
@@ -83,8 +68,10 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   };
 
   const stopCamera = () => {
-    if (codeReaderRef.current) {
-      codeReaderRef.current.reset();
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach((track) => track.stop());
+      videoRef.current.srcObject = null;
     }
     setIsScanning(false);
   };
@@ -108,7 +95,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
 
   const handleQuickAdjust = async (amount: number) => {
     if (!matchedProduct) return;
-    const success = await adjustStock(matchedProduct.id, amount, amount > 0 ? 'バーコードスキャン入荷' : 'バーコードスキャン出庫');
+    const success = await adjustStock(matchedProduct.id, amount);
     if (success) {
       setQuickAdjustSuccess(`${matchedProduct.name} の在庫を ${amount > 0 ? '+1' : '-1'} しました。`);
       const updated = getProductByJanCode(matchedProduct.jan_code);
@@ -136,134 +123,161 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           </button>
         </div>
 
-        {/* Content Area */}
-        <div className="p-5 space-y-4">
-          {/* Camera View / Fallback */}
-          <div className="relative overflow-hidden rounded-xl bg-slate-950 border border-slate-800 aspect-video flex items-center justify-center">
+        <div className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
+          {/* Camera Viewfinder */}
+          <div className="relative aspect-video rounded-xl bg-slate-900 overflow-hidden border border-slate-700 flex items-center justify-center">
             <video
               ref={videoRef}
               className="w-full h-full object-cover"
               playsInline
+              muted
             />
+
+            {/* Scan Box Overlay */}
             {isScanning && !cameraError && (
-              <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
-                <div className="w-64 h-32 border-2 border-blue-400/80 rounded-lg relative overflow-hidden shadow-[0_0_15px_rgba(59,130,246,0.3)]">
-                  <div className="absolute top-0 left-0 w-full h-0.5 bg-blue-400 shadow-[0_0_8px_#3b82f6] animate-scanline" />
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-64 h-32 border-2 border-blue-500 rounded-lg shadow-[0_0_15px_rgba(59,130,246,0.5)] relative">
+                  <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-blue-400 -mt-1 -ml-1 rounded-tl" />
+                  <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-blue-400 -mt-1 -mr-1 rounded-tr" />
+                  <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-blue-400 -mb-1 -ml-1 rounded-bl" />
+                  <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-blue-400 -mb-1 -mr-1 rounded-br" />
+                  <div className="w-full h-0.5 bg-blue-500/80 animate-pulse top-1/2 relative" />
                 </div>
-                <p className="mt-3 text-xs text-blue-300 font-medium bg-slate-900/80 px-3 py-1 rounded-full border border-blue-500/30">
-                  枠内にバーコードを合わせてください
-                </p>
               </div>
             )}
 
-            {cameraError && (
-              <div className="p-4 text-center space-y-2 text-white">
-                <AlertCircle className="w-8 h-8 text-amber-400 mx-auto" />
-                <p className="text-xs text-slate-300">{cameraError}</p>
+            {/* Camera Controls */}
+            <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
+              {isScanning ? (
                 <button
+                  type="button"
+                  onClick={stopCamera}
+                  className="px-2.5 py-1 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white text-[11px] font-semibold backdrop-blur-sm flex items-center gap-1"
+                >
+                  <Square className="w-3 h-3" /> カメラ停止
+                </button>
+              ) : (
+                <button
+                  type="button"
                   onClick={startCamera}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-blue-400 hover:bg-slate-700 transition-colors"
+                  className="px-2.5 py-1 rounded-lg bg-blue-600/80 hover:bg-blue-600 text-white text-[11px] font-semibold backdrop-blur-sm flex items-center gap-1"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" /> 再試行
+                  <Play className="w-3 h-3" /> 再起動
                 </button>
-              </div>
-            )}
-          </div>
-
-          {/* Quick Simulation Buttons */}
-          <div>
-            <p className="text-xs font-medium text-slate-600 mb-1.5 flex items-center gap-1">
-              <Zap className="w-3.5 h-3.5 text-amber-500" /> テスト用バーコード読み取り:
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {products.slice(0, 4).map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => handleScannedCode(p.jan_code)}
-                  className="px-2.5 py-1 text-xs rounded-lg bg-slate-100 hover:bg-blue-50 border border-slate-200 text-slate-700 hover:text-blue-700 transition-all text-left truncate max-w-[180px]"
-                >
-                  {p.name.split(' ')[0]} ({p.jan_code.slice(-4)})
-                </button>
-              ))}
+              )}
             </div>
           </div>
 
-          {/* Manual Input Form */}
+          {cameraError && (
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>{cameraError}</span>
+            </div>
+          )}
+
+          {/* Manual Input Fallback */}
           <form onSubmit={handleManualSubmit} className="flex gap-2">
-            <input
-              type="text"
-              placeholder="JANコード入力 (例: 4901330574345)"
-              value={manualJanInput}
-              onChange={(e) => setManualJanInput(e.target.value)}
-              className="flex-1 px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
-            />
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="手入力 JANコード (例: 4901234567890)"
+                value={manualJanInput}
+                onChange={(e) => setManualJanInput(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-mono focus:outline-none focus:border-blue-500"
+              />
+            </div>
             <button
               type="submit"
-              className="px-4 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition-all shadow-sm"
+              className="px-3.5 py-2 rounded-xl bg-slate-800 text-white text-xs font-semibold hover:bg-slate-700 transition-colors"
             >
-              照会
+              検索
             </button>
           </form>
 
-          {/* Scanned Result Banner */}
+          {/* Quick Success Message */}
+          {quickAdjustSuccess && (
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center gap-2 animate-fade-in">
+              <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{quickAdjustSuccess}</span>
+            </div>
+          )}
+
+          {/* Matched Product Result */}
           {scannedJan && (
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-500">スキャン結果:</span>
-                <span className="font-mono text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                  {scannedJan}
+                <span className="text-[11px] font-mono text-slate-500">
+                  スキャンしたJAN: <span className="font-bold text-slate-800">{scannedJan}</span>
                 </span>
+                {matchedProduct ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                    一致商品あり
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                    未登録コード
+                  </span>
+                )}
               </div>
 
-              {quickAdjustSuccess && (
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-medium">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>{quickAdjustSuccess}</span>
-                </div>
-              )}
-
               {matchedProduct ? (
-                <div className="pt-2 border-t border-slate-200 space-y-3">
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">{matchedProduct.name}</h4>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      保管場所: <span className="font-semibold text-blue-600">{matchedProduct.location}</span> | 現在数:{' '}
-                      <span className="font-bold text-slate-900">{matchedProduct.current_stock}</span> 個
-                    </p>
+                <div className="space-y-3 pt-1">
+                  <div className="flex items-center gap-3">
+                    {matchedProduct.image_url ? (
+                      <img
+                        src={matchedProduct.image_url}
+                        alt={matchedProduct.name}
+                        className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500 shrink-0">
+                        <Package className="w-6 h-6" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-semibold text-xs text-slate-900 truncate">{matchedProduct.name}</h4>
+                      <p className="text-[11px] text-blue-700 mt-0.5">保管場所: {matchedProduct.location}</p>
+                      <div className="text-xs text-slate-700 mt-1">
+                        現在在庫: <span className="font-bold text-slate-900 font-mono text-sm">{matchedProduct.current_stock}</span> 個
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  {/* One-Tap Adjustment */}
+                  <div className="flex gap-2 pt-1">
                     <button
+                      type="button"
                       onClick={() => handleQuickAdjust(-1)}
                       disabled={matchedProduct.current_stock <= 0}
-                      className="py-2 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all disabled:opacity-40"
+                      className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold flex items-center justify-center gap-1 transition-all disabled:opacity-30"
                     >
-                      <Package className="w-3.5 h-3.5" /> 消費 ( -1 )
+                      <Minus className="w-4 h-4" /> 1つ消費 (-1)
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleQuickAdjust(1)}
-                      className="py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+                      className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-1 transition-all"
                     >
-                      <PlusCircle className="w-3.5 h-3.5" /> 追加 ( +1 )
+                      <Plus className="w-4 h-4" /> 1つ追加 (+1)
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="pt-2 border-t border-slate-200 text-center space-y-2">
-                  <p className="text-xs text-amber-700">
-                    未登録のJANコードです。新規追加しますか？
-                  </p>
-                  <button
-                    onClick={() => {
-                      onClose();
-                      if (onOpenAddModalWithJan) {
+                <div className="space-y-2 pt-1 text-center">
+                  <p className="text-xs text-slate-600">このJANコードの商品情報はまだ登録されていません。</p>
+                  {onOpenAddModalWithJan && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
                         onOpenAddModalWithJan(scannedJan);
-                      }
-                    }}
-                    className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-sm"
-                  >
-                    <PlusCircle className="w-4 h-4" /> このJANコードで新在庫を登録
-                  </button>
+                      }}
+                      className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+                    >
+                      <Plus className="w-4 h-4" /> このJANコードで新規在庫を追加
+                    </button>
+                  )}
                 </div>
               )}
             </div>

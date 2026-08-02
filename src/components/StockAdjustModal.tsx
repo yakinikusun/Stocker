@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { X, Plus, Minus, Check, PackageCheck } from 'lucide-react';
 import { Product } from '../types/stock';
 import { useStock } from '../context/StockContext';
-import { STOCK_ADJUST_REASONS } from '../constants';
 
 interface StockAdjustModalProps {
   product: Product | null;
@@ -18,8 +17,6 @@ export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
   const { adjustStock } = useStock();
   const [changeAmount, setChangeAmount] = useState<number>(1);
   const [mode, setMode] = useState<'add' | 'subtract'>('add');
-  const [reason, setReason] = useState<string>(STOCK_ADJUST_REASONS[0]);
-  const [customReason, setCustomReason] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   if (!isOpen || !product) return null;
@@ -32,8 +29,7 @@ export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
     if (finalAmount === 0) return;
 
     setIsSubmitting(true);
-    const selectedReason = reason === 'その他' ? (customReason || '手動調整') : reason;
-    const success = await adjustStock(product.id, finalAmount, selectedReason);
+    const success = await adjustStock(product.id, finalAmount);
     setIsSubmitting(false);
 
     if (success) {
@@ -81,14 +77,11 @@ export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
             </div>
           </div>
 
-          {/* Mode Switcher: 入荷 (+) vs 出庫 (-) */}
+          {/* Mode Switcher: 追加 (+) vs 減少 (-) */}
           <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
             <button
               type="button"
-              onClick={() => {
-                setMode('add');
-                setReason(STOCK_ADJUST_REASONS[0]);
-              }}
+              onClick={() => setMode('add')}
               className={`py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
                 mode === 'add'
                   ? 'bg-emerald-600 text-white shadow-sm'
@@ -99,10 +92,7 @@ export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => {
-                setMode('subtract');
-                setReason(STOCK_ADJUST_REASONS[1]);
-              }}
+              onClick={() => setMode('subtract')}
               className={`py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
                 mode === 'subtract'
                   ? 'bg-rose-600 text-white shadow-sm'
@@ -142,32 +132,6 @@ export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
             <div className="text-center text-xs text-slate-500">
               変更後の想定在庫: <span className="font-bold text-slate-900 font-mono">{projectedStock}</span> 個
             </div>
-          </div>
-
-          {/* Reason Selection */}
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700">変更理由</label>
-            <select
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none"
-            >
-              {STOCK_ADJUST_REASONS.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-
-            {reason === 'その他' && (
-              <input
-                type="text"
-                placeholder="理由を入力..."
-                value={customReason}
-                onChange={(e) => setCustomReason(e.target.value)}
-                className="w-full mt-2 px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none"
-              />
-            )}
           </div>
 
           {/* Actions */}
