@@ -253,7 +253,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         {/* Image Upload Zone */}
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-            <ImageIcon className="w-3.5 h-3.5 text-blue-600" /> 商品写真・画像アップロード
+            <ImageIcon className="w-3.5 h-3.5 text-blue-600" /> 
+            {isExistingMatch ? '写真・画像プレビュー' : '写真・画像アップロード'}
+            
           </label>
           
           <input
@@ -263,7 +265,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             onChange={handleImageFileChange}
             className="hidden"
           />
-
           {imagePreview ? (
             <div className="relative w-full h-36 rounded-xl overflow-hidden border border-slate-300 group">
               <img
@@ -271,6 +272,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 alt="プレビュー"
                 className="w-full h-full object-cover"
               />
+              {!isExistingMatch && (
               <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                 <button
                   type="button"
@@ -290,20 +292,28 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 >
                   削除
                 </button>
-              </div>
+              </div>)}
             </div>
           ) : (
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full h-24 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-blue-50/50 hover:border-blue-400 transition-all flex flex-col items-center justify-center cursor-pointer p-3 text-center"
-            >
-              <Upload className="w-6 h-6 text-slate-400 mb-1" />
+            <div>{isExistingMatch ? (
+              <div className="w-full h-24 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center p-3 text-center">
+                <span className="text-xs font-semibold text-slate-600">
+                  NO IMAGE
+                </span>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full h-24 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-blue-50/50 hover:border-blue-400 transition-all flex flex-col items-center justify-center cursor-pointer p-3 text-center"
+              >
+                <Upload className="w-6 h-6 text-slate-400 mb-1" />
               <span className="text-xs font-semibold text-slate-600">
                 クリックして画像をアップロード
               </span>
               <span className="text-[10px] text-slate-400 mt-0.5">
                 JPEG, PNG, WEBP 画像ファイルに対応
               </span>
+            </div>)}
             </div>
           )}
         </div>
@@ -365,11 +375,12 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         </div>
 
         {/* Tag Selector (Dropdown + Checkboxes) */}
-        <div className="space-y-1 relative" ref={tagDropdownRef}>
-          <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-            <TagIcon className="w-3.5 h-3.5 text-amber-500" /> 分類タグ (ドロップダウン選択)
-          </label>
-          <button
+        { !isExistingMatch && (
+          <div className="space-y-1 relative" ref={tagDropdownRef}>
+            <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+              <TagIcon className="w-3.5 h-3.5 text-amber-500" /> 分類タグ (ドロップダウン選択)
+            </label>
+            <button
             type="button"
             onClick={() => setIsTagDropdownOpen(!isTagDropdownOpen)}
             className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-left flex items-center justify-between"
@@ -403,7 +414,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               })}
             </div>
           )}
-        </div>
+        </div>)}
 
         {/* Save to Preset Checkbox */}
         {!selectedPresetId && (
