@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, Package, LayoutGrid, List, RotateCcw, FolderKanban } from 'lucide-react';
+import { Search, Plus, Package, LayoutGrid, List, RotateCcw, FolderKanban, Tag as TagIcon, Sparkles, Trash2, X } from 'lucide-react';
 import { useStock } from '../context/StockContext';
 import { useAuth } from '../context/AuthContext';
 import { Product } from '../types/stock';
@@ -21,12 +21,14 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal }) => {
     setStatusFilter,
     locationFilter,
     setLocationFilter,
-    selectedTagFilter,
-    setSelectedTagFilter,
+    selectedTagFilters,
+    toggleTagFilter,
+    clearTagFilters,
     locations,
     tags,
     adjustStock,
     deleteProduct,
+    cleanUpZeroStockProducts,
     resetToDefaultDemoData,
     products
   } = useStock();
@@ -34,13 +36,26 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal }) => {
 
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedProductForAdjust, setSelectedProductForAdjust] = useState<Product | null>(null);
+  const [cleanupMessage, setCleanupMessage] = useState<string | null>(null);
 
   const handleDelete = (productId: string) => {
     const target = products.find((p) => p.id === productId);
-    if (target && confirm(`「${target.name}」を削除してもよろしいですか？`)) {
+    if (target && confirm(`「${target.name}」の在庫を0にして削除しますか？（履歴ログに記録されます）`)) {
       deleteProduct(productId);
     }
   };
+
+  const handleRunCleanup = async () => {
+    const deletedCount = await cleanUpZeroStockProducts(24);
+    if (deletedCount > 0) {
+      setCleanupMessage(`24時間以上在庫が0の商品 ${deletedCount} 件を自動削除しました。`);
+    } else {
+      setCleanupMessage('24時間以上在庫が0の商品は存在しません。');
+    }
+    setTimeout(() => setCleanupMessage(null), 4000);
+  };
+
+  const zeroStockCount = products.filter(p => p.current_stock === 0).length;
 
   return (
     <div className="space-y-4">
@@ -82,6 +97,39 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal }) => {
         })}
       </div>
 
+      {/* Multi-Tag Selection Bar */}
+      {tags.length > 0 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+          <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1 shrink-0">
+            <TagIcon className="w-3 h-3 text-amber-500" /> タグ複数選択:
+          </span>
+          {tags.map((t) => {
+            const isSelected = selectedTagFilters.includes(t.name);
+            return (
+              <button
+                key={t.id}
+                onClick={() => toggleTagFilter(t.name)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all border ${
+                  isSelected
+                    ? 'bg-amber-500 text-white border-amber-600 shadow-sm font-semibold'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                #{t.name}
+              </button>
+            );
+          })}
+          {selectedTagFilters.length > 0 && (
+            <button
+              onClick={clearTagFilters}
+              className="px-2 py-1 rounded-lg text-xs text-rose-600 hover:bg-rose-50 transition-colors shrink-0 flex items-center gap-0.5"
+            >
+              <X className="w-3 h-3" /> タグ解除
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Controls Bar: Search & Filter & Views */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-xl clean-card">
         {/* Search Input */}
@@ -89,7 +137,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal }) => {
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="商品名、JAN、タグで検索..."
+            placeholder="商品名、JAN、タグ、保管場所で検索..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-all"
@@ -106,20 +154,6 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal }) => {
 
         {/* Action Buttons & Dropdowns */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Tag Filter */}
-          <select
-            value={selectedTagFilter}
-            onChange={(e) => setSelectedTagFilter(e.target.value)}
-            className="px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
-          >
-            <option value="all">全てのタグ</option>
-            {tags.map((t) => (
-              <option key={t.id} value={t.name}>
-                🏷️ {t.name}
-              </option>
-            ))}
-          </select>
-
           {/* Status Filter Dropdown */}
           <select
             value={statusFilter}
@@ -153,6 +187,17 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal }) => {
             </button>
           </div>
 
+          {/* Auto 0-Stock Cleanup Trigger */}
+          {zeroStockCount > 0 && (
+            <button
+              onClick={handleRunCleanup}
+              className="px-3 py-2 text-xs font-medium rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1 transition-colors"
+              title="24時間以上在庫が0のアイテムを自動整理"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-600" /> 0在庫消去 ({zeroStockCount})
+            </button>
+          )}
+
           {/* Add Product Button */}
           <button
             onClick={onOpenAddModal}
@@ -162,6 +207,13 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal }) => {
           </button>
         </div>
       </div>
+
+      {cleanupMessage && (
+        <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs font-medium flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+          <span>{cleanupMessage}</span>
+        </div>
+      )}
 
       {/* Main List Display */}
       {filteredProducts.length === 0 ? (

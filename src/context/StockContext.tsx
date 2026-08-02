@@ -32,21 +32,26 @@ interface StockContextType {
   setStatusFilter: (status: FilterStockStatus) => void;
   locationFilter: string;
   setLocationFilter: (location: string) => void;
-  selectedTagFilter: string;
-  setSelectedTagFilter: (tag: string) => void;
+  selectedTagFilters: string[];
+  setSelectedTagFilters: (tags: string[]) => void;
+  toggleTagFilter: (tag: string) => void;
+  clearTagFilters: () => void;
   filteredProducts: Product[];
   clearFilters: () => void;
 
-  // Storage locations CRUD
+  // Storage locations CRUD & Edit
   addLocation: (name: string) => Promise<boolean>;
+  updateLocation: (id: string, name: string) => Promise<boolean>;
   deleteLocation: (id: string) => Promise<boolean>;
 
-  // Tags CRUD
+  // Tags CRUD & Edit
   addTag: (name: string, color?: string) => Promise<boolean>;
+  updateTag: (id: string, name: string, color?: string) => Promise<boolean>;
   deleteTag: (id: string) => Promise<boolean>;
 
-  // Presets CRUD
+  // Presets CRUD & Edit
   addPreset: (preset: Omit<Preset, 'id' | 'created_at' | 'updated_at'>) => Promise<boolean>;
+  updatePreset: (id: string, updated: Partial<Preset>) => Promise<boolean>;
   deletePreset: (id: string) => Promise<boolean>;
   createProductFromPreset: (preset: Preset, stockCount?: number) => Promise<Product | null>;
 
@@ -55,6 +60,7 @@ interface StockContextType {
   adjustStock: (productId: string, changeAmount: number) => Promise<boolean>;
   deleteProduct: (productId: string) => Promise<boolean>;
   getProductByJanCode: (janCode: string) => Product | undefined;
+  cleanUpZeroStockProducts: (maxAgeHours?: number) => Promise<number>;
   resetToDefaultDemoData: () => void;
   refreshData: () => Promise<void>;
 }
@@ -70,7 +76,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [presets, setPresets] = useState<Preset[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Filtering Hook
+  // Multi-tag Filtering Hook
   const {
     searchTerm,
     setSearchTerm,
@@ -78,8 +84,10 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setStatusFilter,
     locationFilter,
     setLocationFilter,
-    selectedTagFilter,
-    setSelectedTagFilter,
+    selectedTagFilters,
+    setSelectedTagFilters,
+    toggleTagFilter,
+    clearTagFilters,
     filteredProducts,
     clearFilters
   } = useStockFilter(products);
@@ -150,7 +158,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const client = getSupabaseClient();
     if (client && isSupabaseActive) {
       const channel = client
-        .channel('public-stock-changes-v7')
+        .channel('public-stock-changes-v8')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchAllData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_history' }, fetchAllData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, fetchAllData)
@@ -165,10 +173,11 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [isSupabaseActive, fetchAllData]);
 
   const getProductByJanCode = (janCode: string) => {
-    return products.find((p) => p.jan_code === janCode);
+    if (!janCode.trim()) return undefined;
+    return products.find((p) => p.jan_code === janCode.trim());
   };
 
-  // Location Handlers
+  // Location Handlers (Admin Only Deletion)
   const addLocation = async (name: string): Promise<boolean> => {
     if (!name.trim()) return false;
     const client = getSupabaseClient();
@@ -186,7 +195,27 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const updateLocation = async (id: string, newName: string): Promise<boolean> => {
+    if (!newName.trim()) return false;
+    const client = getSupabaseClient();
+    if (client && isSupabaseActive) {
+      const { error } = await client.from('locations').update({ name: newName.trim() }).eq('id', id);
+      if (error) { alert(`保管場所更新エラー: ${error.message}`); return false; }
+      await fetchAllData();
+      return true;
+    } else {
+      const updated = locations.map(l => l.id === id ? { ...l, name: newName.trim() } : l);
+      setLocations(updated);
+      saveLocalLocations(updated);
+      return true;
+    }
+  };
+
   const deleteLocation = async (id: string): Promise<boolean> => {
+    if (user?.role !== 'admin') {
+      alert('保管場所の削除は管理者権限が必要です。');
+      return false;
+    }
     const client = getSupabaseClient();
     if (client && isSupabaseActive) {
       const { error } = await client.from('locations').delete().eq('id', id);
@@ -213,6 +242,22 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } else {
       const newTag: Tag = { id: `tag-${Date.now()}`, name: name.trim(), color: color || '#3b82f6' };
       const updated = [...tags, newTag];
+      setTags(updated);
+      saveLocalTags(updated);
+      return true;
+    }
+  };
+
+  const updateTag = async (id: string, name: string, color?: string): Promise<boolean> => {
+    if (!name.trim()) return false;
+    const client = getSupabaseClient();
+    if (client && isSupabaseActive) {
+      const { error } = await client.from('tags').update({ name: name.trim(), color: color || '#3b82f6' }).eq('id', id);
+      if (error) { alert(`タグ更新エラー: ${error.message}`); return false; }
+      await fetchAllData();
+      return true;
+    } else {
+      const updated = tags.map(t => t.id === id ? { ...t, name: name.trim(), color: color || t.color } : t);
       setTags(updated);
       saveLocalTags(updated);
       return true;
@@ -263,6 +308,25 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const updatePreset = async (id: string, updatedFields: Partial<Preset>): Promise<boolean> => {
+    const client = getSupabaseClient();
+    const now = new Date().toISOString();
+    if (client && isSupabaseActive) {
+      const { error } = await client.from('presets').update({
+        ...updatedFields,
+        updated_at: now
+      }).eq('id', id);
+      if (error) { alert(`プリセット更新エラー: ${error.message}`); return false; }
+      await fetchAllData();
+      return true;
+    } else {
+      const updated = presets.map(p => p.id === id ? { ...p, ...updatedFields, updated_at: now } : p);
+      setPresets(updated);
+      saveLocalPresets(updated);
+      return true;
+    }
+  };
+
   const deletePreset = async (id: string): Promise<boolean> => {
     const targetPreset = presets.find(p => p.id === id);
     const client = getSupabaseClient();
@@ -290,14 +354,16 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Add stock from Preset (increment existing if already in products)
   const createProductFromPreset = async (preset: Preset, stockCount: number = 1): Promise<Product | null> => {
-    const jan = preset.jan_code || `JAN-${Date.now()}`;
-    const existing = getProductByJanCode(jan);
+    // 1. Find existing by JAN or Name
+    const existing = products.find(p => (preset.jan_code && p.jan_code === preset.jan_code) || p.name === preset.name);
 
     if (existing) {
       await adjustStock(existing.id, stockCount);
       return existing;
     } else {
+      const jan = preset.jan_code || `JAN-${Date.now()}`;
       return await addProduct({
         jan_code: jan,
         name: preset.name,
@@ -311,6 +377,14 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Product CRUD
   const addProduct = async (newProd: Omit<Product, 'id' | 'created_at' | 'updated_at'>): Promise<Product | null> => {
+    // If JAN or Name matches existing product, increment stock instead of failing!
+    const existing = products.find(p => (newProd.jan_code && p.jan_code === newProd.jan_code) || p.name === newProd.name);
+
+    if (existing) {
+      await adjustStock(existing.id, newProd.current_stock > 0 ? newProd.current_stock : 1);
+      return existing;
+    }
+
     const client = getSupabaseClient();
     const now = new Date().toISOString();
 
@@ -379,7 +453,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Stock Adjustment (No reason parameter)
+  // Stock Adjustment
   const adjustStock = async (productId: string, changeAmount: number): Promise<boolean> => {
     const targetProduct = products.find((p) => p.id === productId);
     if (!targetProduct) return false;
@@ -455,15 +529,42 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Product Deletion: Open to ALL users; records a stock history entry setting quantity to 0 before deleting
   const deleteProduct = async (productId: string): Promise<boolean> => {
-    if (user?.role !== 'admin') {
-      alert('商品削除は管理者権限が必要です。');
-      return false;
+    const targetProduct = products.find(p => p.id === productId);
+    if (!targetProduct) return false;
+
+    const client = getSupabaseClient();
+    const now = new Date().toISOString();
+
+    // 1. Record stock history setting remaining stock to 0 (if stock > 0)
+    if (targetProduct.current_stock > 0) {
+      if (client && isSupabaseActive) {
+        await client.from('stock_history').insert([{
+          product_id: productId,
+          user_id: user?.id || null,
+          change_amount: -targetProduct.current_stock
+        }]);
+      } else {
+        const clearHistoryItem: StockHistory = {
+          id: `hist-${Date.now()}`,
+          product_id: productId,
+          user_id: user?.id || 'usr-guest',
+          change_amount: -targetProduct.current_stock,
+          created_at: now,
+          product_name: targetProduct.name,
+          jan_code: targetProduct.jan_code,
+          location: targetProduct.location,
+          user_email: user?.email || 'guest@freezer.local',
+          user_name: user?.name || 'ゲスト'
+        };
+        const updatedHistories = [clearHistoryItem, ...histories];
+        setHistories(updatedHistories);
+        saveLocalHistories(updatedHistories);
+      }
     }
 
-    const targetProduct = products.find(p => p.id === productId);
-    const client = getSupabaseClient();
-
+    // 2. Perform deletion
     if (client && isSupabaseActive) {
       const { error } = await client.from('products').delete().eq('id', productId);
       if (error) { alert(`削除エラー: ${error.message}`); return false; }
@@ -487,6 +588,25 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Clean up 0-stock products that have been at 0 for > maxAgeHours (default 24h)
+  const cleanUpZeroStockProducts = async (maxAgeHours: number = 24): Promise<number> => {
+    const cutoffTime = Date.now() - maxAgeHours * 60 * 60 * 1000;
+    const staleZeroStockProducts = products.filter(p => {
+      if (p.current_stock !== 0) return false;
+      const updatedTime = new Date(p.updated_at).getTime();
+      return updatedTime < cutoffTime;
+    });
+
+    if (staleZeroStockProducts.length === 0) return 0;
+
+    let deletedCount = 0;
+    for (const p of staleZeroStockProducts) {
+      const ok = await deleteProduct(p.id);
+      if (ok) deletedCount++;
+    }
+    return deletedCount;
+  };
+
   const resetToDefaultDemoData = () => {
     resetLocalData();
     fetchAllData();
@@ -508,16 +628,21 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setStatusFilter,
         locationFilter,
         setLocationFilter,
-        selectedTagFilter,
-        setSelectedTagFilter,
+        selectedTagFilters,
+        setSelectedTagFilters,
+        toggleTagFilter,
+        clearTagFilters,
         filteredProducts,
         clearFilters,
 
         addLocation,
+        updateLocation,
         deleteLocation,
         addTag,
+        updateTag,
         deleteTag,
         addPreset,
+        updatePreset,
         deletePreset,
         createProductFromPreset,
 
@@ -525,6 +650,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         adjustStock,
         deleteProduct,
         getProductByJanCode,
+        cleanUpZeroStockProducts,
         resetToDefaultDemoData,
         refreshData: fetchAllData
       }}

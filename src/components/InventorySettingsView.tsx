@@ -10,10 +10,13 @@ import {
   Sparkles,
   CheckCircle2,
   Upload,
-  Image as ImageIcon
+  Pencil,
+  X,
+  Check
 } from 'lucide-react';
 import { useStock } from '../context/StockContext';
-import { Preset } from '../types/stock';
+import { useAuth } from '../context/AuthContext';
+import { Preset, Location, Tag } from '../types/stock';
 import { uploadProductImage } from '../lib/supabase';
 
 interface InventorySettingsViewProps {
@@ -26,20 +29,30 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
     tags,
     presets,
     addLocation,
+    updateLocation,
     deleteLocation,
     addTag,
+    updateTag,
     deleteTag,
     addPreset,
-    deletePreset
+    updatePreset,
+    deletePreset,
+    createProductFromPreset
   } = useStock();
+  const { user } = useAuth();
 
   const [activeSubTab, setActiveSubTab] = useState<'locations' | 'presets' | 'tags'>('locations');
 
-  // Input states
+  // Input & Edit states
   const [newLocationName, setNewLocationName] = useState('');
+  const [editingLocation, setEditingLocation] = useState<Location | null>(null);
+  const [editLocationName, setEditLocationName] = useState('');
+
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState('#3b82f6');
-  
+  const [editingTag, setEditingTag] = useState<Tag | null>(null);
+  const [editTagName, setEditTagName] = useState('');
+
   // Preset input state
   const [presetName, setPresetName] = useState('');
   const [presetJan, setPresetJan] = useState('');
@@ -47,8 +60,18 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
   const [presetTag, setPresetTag] = useState('');
   const [presetImageFile, setPresetImageFile] = useState<File | null>(null);
   const [presetImagePreview, setPresetImagePreview] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
 
+  // Preset Editing
+  const [editingPreset, setEditingPreset] = useState<Preset | null>(null);
+  const [editPresetName, setEditPresetName] = useState('');
+  const [editPresetJan, setEditPresetJan] = useState('');
+  const [editPresetLocation, setEditPresetLocation] = useState('');
+
+  // Preset Quantity Call Modal
+  const [selectedPresetForCall, setSelectedPresetForCall] = useState<Preset | null>(null);
+  const [callQuantity, setCallQuantity] = useState<number>(1);
+
+  const [isUploading, setIsUploading] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const presetFileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -65,6 +88,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
     }
   };
 
+  // Location Handlers
   const handleAddLocationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newLocationName.trim()) return;
@@ -75,6 +99,17 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
     }
   };
 
+  const handleUpdateLocationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLocation || !editLocationName.trim()) return;
+    const ok = await updateLocation(editingLocation.id, editLocationName.trim());
+    if (ok) {
+      showTempMessage(`保管場所を「${editLocationName}」に更新しました。`);
+      setEditingLocation(null);
+    }
+  };
+
+  // Tag Handlers
   const handleAddTagSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTagName.trim()) return;
@@ -85,6 +120,17 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
     }
   };
 
+  const handleUpdateTagSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTag || !editTagName.trim()) return;
+    const ok = await updateTag(editingTag.id, editTagName.trim());
+    if (ok) {
+      showTempMessage(`タグを「${editTagName}」に更新しました。`);
+      setEditingTag(null);
+    }
+  };
+
+  // Preset Handlers
   const handleAddPresetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!presetName.trim()) return;
@@ -118,6 +164,31 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
     }
   };
 
+  const handleUpdatePresetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPreset || !editPresetName.trim()) return;
+
+    const ok = await updatePreset(editingPreset.id, {
+      name: editPresetName.trim(),
+      jan_code: editPresetJan.trim() || undefined,
+      location: editPresetLocation
+    });
+
+    if (ok) {
+      showTempMessage(`プリセット「${editPresetName}」を更新しました。`);
+      setEditingPreset(null);
+    }
+  };
+
+  // Execute Call Preset with Quantity
+  const handleExecuteCallPreset = async () => {
+    if (!selectedPresetForCall) return;
+    await createProductFromPreset(selectedPresetForCall, Math.max(1, callQuantity));
+    showTempMessage(`「${selectedPresetForCall.name}」を ${callQuantity} 個在庫に追加しました。`);
+    setSelectedPresetForCall(null);
+    setCallQuantity(1);
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Banner & Sub Navigation */}
@@ -128,7 +199,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
               <Layers className="w-5 h-5 text-blue-600" /> 在庫設定マスタ管理
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              冷蔵庫・冷凍庫等の保管場所、分類タグ、再注文用プリセットの確認・追加・削除を行えます。
+              冷蔵庫・冷凍庫等の保管場所、分類タグ、再注文用プリセットの確認・編集・追加・削除を行えます。
             </p>
           </div>
         </div>
@@ -206,28 +277,66 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
           <div className="clean-card p-5 space-y-4 md:col-span-2">
             <h3 className="text-sm font-bold text-slate-800">登録済み保管場所一覧</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {locations.map((loc) => (
-                <div
-                  key={loc.id}
-                  className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between group"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <FolderKanban className="w-4 h-4 text-blue-500" />
-                    <span className="text-xs font-semibold text-slate-800">{loc.name}</span>
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (confirm(`保管場所「${loc.name}」を削除しますか？`)) {
-                        deleteLocation(loc.id);
-                      }
-                    }}
-                    className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
-                    title="削除"
+              {locations.map((loc) => {
+                const isEditing = editingLocation?.id === loc.id;
+                return (
+                  <div
+                    key={loc.id}
+                    className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between group"
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+                    {isEditing ? (
+                      <form onSubmit={handleUpdateLocationSubmit} className="flex items-center gap-2 flex-1">
+                        <input
+                          type="text"
+                          value={editLocationName}
+                          onChange={(e) => setEditLocationName(e.target.value)}
+                          className="flex-1 px-2.5 py-1 text-xs rounded-lg border border-blue-500 focus:outline-none"
+                        />
+                        <button type="submit" className="p-1 text-emerald-600 hover:bg-emerald-50 rounded">
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button type="button" onClick={() => setEditingLocation(null)} className="p-1 text-slate-400 hover:bg-slate-200 rounded">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </form>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2.5">
+                          <FolderKanban className="w-4 h-4 text-blue-500" />
+                          <span className="text-xs font-semibold text-slate-800">{loc.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => {
+                              setEditingLocation(loc);
+                              setEditLocationName(loc.name);
+                            }}
+                            className="p-1 text-slate-400 hover:text-blue-600 transition-colors"
+                            title="編集"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Requirement 10: Delete location is restricted to admin only */}
+                          {user?.role === 'admin' && (
+                            <button
+                              onClick={() => {
+                                if (confirm(`保管場所「${loc.name}」を削除しますか？`)) {
+                                  deleteLocation(loc.id);
+                                }
+                              }}
+                              className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
+                              title="削除 (管理者のみ)"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -316,55 +425,119 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
           <div className="clean-card p-5 space-y-4 md:col-span-2">
             <h3 className="text-sm font-bold text-slate-800">登録済みプリセット一覧 (ストック再補充用)</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {presets.map((pst) => (
-                <div
-                  key={pst.id}
-                  className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-start justify-between gap-3 group"
-                >
-                  <div className="flex items-start gap-3 min-w-0">
-                    {pst.image_url ? (
-                      <img
-                        src={pst.image_url}
-                        alt={pst.name}
-                        className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500 shrink-0">
-                        <Package className="w-6 h-6" />
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <h4 className="font-semibold text-xs text-slate-800 truncate">{pst.name}</h4>
-                      <span className="inline-block px-2 py-0.5 mt-1 rounded bg-blue-100 text-blue-700 text-[10px] font-medium">
-                        {pst.location}
-                      </span>
-                      {pst.jan_code && (
-                        <p className="font-mono text-[10px] text-slate-400 mt-1">JAN: {pst.jan_code}</p>
-                      )}
-                    </div>
-                  </div>
+              {presets.map((pst) => {
+                const isEditing = editingPreset?.id === pst.id;
 
-                  <div className="flex flex-col items-end gap-2 shrink-0">
-                    <button
-                      onClick={() => onCallPresetToStock(pst)}
-                      className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-semibold shadow-sm flex items-center gap-1 transition-all"
-                      title="在庫に呼び出し追加"
-                    >
-                      <Sparkles className="w-3 h-3" /> 在庫に追加
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (confirm(`プリセット「${pst.name}」を削除しますか？`)) {
-                          deletePreset(pst.id);
-                        }
-                      }}
-                      className="text-slate-400 hover:text-rose-600 transition-colors p-1"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                return (
+                  <div
+                    key={pst.id}
+                    className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-start justify-between gap-3 group"
+                  >
+                    {isEditing ? (
+                      <form onSubmit={handleUpdatePresetSubmit} className="space-y-2 w-full">
+                        <input
+                          type="text"
+                          required
+                          value={editPresetName}
+                          onChange={(e) => setEditPresetName(e.target.value)}
+                          className="w-full px-2.5 py-1 text-xs rounded-lg border border-purple-500 focus:outline-none"
+                        />
+                        <div className="flex gap-2">
+                          <select
+                            value={editPresetLocation}
+                            onChange={(e) => setEditPresetLocation(e.target.value)}
+                            className="flex-1 px-2 py-1 text-[11px] rounded-lg border border-slate-300"
+                          >
+                            {locations.map((l) => (
+                              <option key={l.id} value={l.name}>{l.name}</option>
+                            ))}
+                          </select>
+                          <input
+                            type="text"
+                            placeholder="JAN"
+                            value={editPresetJan}
+                            onChange={(e) => setEditPresetJan(e.target.value)}
+                            className="flex-1 px-2 py-1 text-[11px] font-mono rounded-lg border border-slate-300"
+                          />
+                        </div>
+                        <div className="flex justify-end gap-1.5 pt-1">
+                          <button type="button" onClick={() => setEditingPreset(null)} className="px-2.5 py-1 text-[11px] rounded border border-slate-300">
+                            キャンセル
+                          </button>
+                          <button type="submit" className="px-2.5 py-1 text-[11px] rounded bg-purple-600 text-white font-semibold">
+                            更新
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <>
+                        <div className="flex items-start gap-3 min-w-0">
+                          {pst.image_url ? (
+                            <img
+                              src={pst.image_url}
+                              alt={pst.name}
+                              className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500 shrink-0">
+                              <Package className="w-6 h-6" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <h4 className="font-semibold text-xs text-slate-800 truncate">{pst.name}</h4>
+                            <span className="inline-block px-2 py-0.5 mt-1 rounded bg-blue-100 text-blue-700 text-[10px] font-medium">
+                              {pst.location}
+                            </span>
+                            {pst.jan_code && (
+                              <p className="font-mono text-[10px] text-slate-400 mt-1">JAN: {pst.jan_code}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-2 shrink-0">
+                          {/* Requirement 6: Select quantity when calling preset to stock */}
+                          <button
+                            onClick={() => {
+                              setSelectedPresetForCall(pst);
+                              setCallQuantity(1);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-semibold shadow-sm flex items-center gap-1 transition-all"
+                            title="個数を指定して在庫に追加"
+                          >
+                            <Sparkles className="w-3 h-3" /> 在庫に追加
+                          </button>
+                          
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => {
+                                setEditingPreset(pst);
+                                setEditPresetName(pst.name);
+                                setEditPresetJan(pst.jan_code || '');
+                                setEditPresetLocation(pst.location);
+                              }}
+                              className="text-slate-400 hover:text-purple-600 transition-colors p-1"
+                              title="編集"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm(`プリセット「${pst.name}」を削除しますか？`)) {
+                                  deletePreset(pst.id);
+                                }
+                              }}
+                              className="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                              title="削除"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -401,25 +574,133 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
           <div className="clean-card p-5 space-y-4 md:col-span-2">
             <h3 className="text-sm font-bold text-slate-800">登録済みタグ一覧</h3>
             <div className="flex flex-wrap gap-2.5">
-              {tags.map((t) => (
-                <div
-                  key={t.id}
-                  className="px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 flex items-center gap-2"
-                >
-                  <TagIcon className="w-3.5 h-3.5 text-amber-500" />
-                  <span className="text-xs font-semibold text-slate-700">{t.name}</span>
-                  <button
-                    onClick={() => {
-                      if (confirm(`タグ「${t.name}」を削除しますか？`)) {
-                        deleteTag(t.id);
-                      }
-                    }}
-                    className="text-slate-400 hover:text-rose-600 transition-colors ml-1"
+              {tags.map((t) => {
+                const isEditing = editingTag?.id === t.id;
+
+                return (
+                  <div
+                    key={t.id}
+                    className="px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 flex items-center gap-2"
                   >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
+                    {isEditing ? (
+                      <form onSubmit={handleUpdateTagSubmit} className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          value={editTagName}
+                          onChange={(e) => setEditTagName(e.target.value)}
+                          className="px-2 py-0.5 text-xs rounded border border-amber-500 focus:outline-none"
+                        />
+                        <button type="submit" className="p-0.5 text-emerald-600">
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" onClick={() => setEditingTag(null)} className="p-0.5 text-slate-400">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </form>
+                    ) : (
+                      <>
+                        <TagIcon className="w-3.5 h-3.5 text-amber-500" />
+                        <span className="text-xs font-semibold text-slate-700">{t.name}</span>
+                        <button
+                          onClick={() => {
+                            setEditingTag(t);
+                            setEditTagName(t.name);
+                          }}
+                          className="text-slate-400 hover:text-amber-600 transition-colors ml-1"
+                          title="編集"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`タグ「${t.name}」を削除しますか？`)) {
+                              deleteTag(t.id);
+                            }
+                          }}
+                          className="text-slate-400 hover:text-rose-600 transition-colors"
+                          title="削除"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Requirement 6: Preset Quantity Prompt Modal */}
+      {selectedPresetForCall && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-sm overflow-hidden rounded-2xl clean-modal border border-slate-200 p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-purple-600" /> プリセットから追加
+              </h3>
+              <button onClick={() => setSelectedPresetForCall(null)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 rounded-xl bg-purple-50 border border-purple-100 flex items-center gap-3">
+              {selectedPresetForCall.image_url ? (
+                <img src={selectedPresetForCall.image_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+              ) : (
+                <div className="w-10 h-10 rounded-lg bg-purple-200 flex items-center justify-center text-purple-600 shrink-0">
+                  <Package className="w-5 h-5" />
                 </div>
-              ))}
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-xs text-slate-900 truncate">{selectedPresetForCall.name}</p>
+                <p className="text-[10px] text-purple-700 mt-0.5">保管場所: {selectedPresetForCall.location}</p>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700 block">追加個数</label>
+              <div className="flex items-center justify-center gap-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setCallQuantity(Math.max(1, callQuantity - 1))}
+                  className="w-8 h-8 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 font-bold"
+                >
+                  -
+                </button>
+                <input
+                  type="number"
+                  min="1"
+                  value={callQuantity}
+                  onChange={(e) => setCallQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-16 text-center text-lg font-bold font-mono py-0.5 rounded-lg bg-white border border-slate-300 text-slate-900 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setCallQuantity(callQuantity + 1)}
+                  className="w-8 h-8 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 font-bold"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setSelectedPresetForCall(null)}
+                className="flex-1 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-100"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteCallPreset}
+                className="flex-1 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold"
+              >
+                {callQuantity} 個を追加
+              </button>
             </div>
           </div>
         </div>

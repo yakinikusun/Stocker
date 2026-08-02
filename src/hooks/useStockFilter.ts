@@ -5,50 +5,65 @@ export function useStockFilter(products: Product[]) {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<FilterStockStatus>('all');
   const [locationFilter, setLocationFilter] = useState<string>('all');
-  const [selectedTagFilter, setSelectedTagFilter] = useState<string>('all');
+  const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
+
+  const toggleTagFilter = (tagName: string) => {
+    if (selectedTagFilters.includes(tagName)) {
+      setSelectedTagFilters(selectedTagFilters.filter((t) => t !== tagName));
+    } else {
+      setSelectedTagFilters([...selectedTagFilters, tagName]);
+    }
+  };
+
+  const clearTagFilters = () => {
+    setSelectedTagFilters([]);
+  };
 
   const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      // 1. Search term match (Name, JAN Code, Location, Tag)
-      const query = searchTerm.toLowerCase().trim();
-      if (query) {
-        const matchesName = p.name.toLowerCase().includes(query);
-        const matchesJan = p.jan_code.includes(query);
-        const matchesLoc = p.location.toLowerCase().includes(query);
-        const matchesTag = p.tags.some((t) => t.toLowerCase().includes(query));
+    return products.filter((product) => {
+      // 1. Search Term (name, jan_code, location, tags)
+      if (searchTerm.trim()) {
+        const query = searchTerm.toLowerCase().trim();
+        const matchesName = product.name.toLowerCase().includes(query);
+        const matchesJan = product.jan_code.toLowerCase().includes(query);
+        const matchesLocation = product.location.toLowerCase().includes(query);
+        const matchesTags = product.tags.some((t) => t.toLowerCase().includes(query));
 
-        if (!matchesName && !matchesJan && !matchesLoc && !matchesTag) {
+        if (!matchesName && !matchesJan && !matchesLocation && !matchesTags) {
           return false;
         }
       }
 
-      // 2. Storage Location Filter
-      if (locationFilter !== 'all' && p.location !== locationFilter) {
+      // 2. Binary Stock Status Filter (In Stock >0 vs Out of Stock ===0)
+      if (statusFilter === 'in_stock' && product.current_stock <= 0) {
+        return false;
+      }
+      if (statusFilter === 'out_of_stock' && product.current_stock > 0) {
         return false;
       }
 
-      // 3. Tag Filter
-      if (selectedTagFilter !== 'all' && !p.tags.includes(selectedTagFilter)) {
+      // 3. Storage Location Filter
+      if (locationFilter !== 'all' && product.location !== locationFilter) {
         return false;
       }
 
-      // 4. Binary Stock Status Filter
-      if (statusFilter === 'in_stock' && p.current_stock <= 0) {
-        return false;
-      }
-      if (statusFilter === 'out_of_stock' && p.current_stock !== 0) {
-        return false;
+      // 4. Multi-tag Filter (match if product contains ALL or ANY selected tags)
+      if (selectedTagFilters.length > 0) {
+        const hasAllTags = selectedTagFilters.every((tag) => product.tags.includes(tag));
+        if (!hasAllTags) {
+          return false;
+        }
       }
 
       return true;
     });
-  }, [products, searchTerm, statusFilter, locationFilter, selectedTagFilter]);
+  }, [products, searchTerm, statusFilter, locationFilter, selectedTagFilters]);
 
   const clearFilters = () => {
     setSearchTerm('');
     setStatusFilter('all');
     setLocationFilter('all');
-    setSelectedTagFilter('all');
+    setSelectedTagFilters([]);
   };
 
   return {
@@ -58,8 +73,10 @@ export function useStockFilter(products: Product[]) {
     setStatusFilter,
     locationFilter,
     setLocationFilter,
-    selectedTagFilter,
-    setSelectedTagFilter,
+    selectedTagFilters,
+    setSelectedTagFilters,
+    toggleTagFilter,
+    clearTagFilters,
     filteredProducts,
     clearFilters
   };

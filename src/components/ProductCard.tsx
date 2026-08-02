@@ -47,15 +47,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               </span>
             )}
 
-            {isAdmin && (
-              <button
-                onClick={() => onDeleteProduct(product.id)}
-                className="text-slate-400 hover:text-rose-600 p-1 transition-colors"
-                title="削除"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
+            {/* Delete button open to all users (records 0-stock history log before removal) */}
+            <button
+              onClick={() => onDeleteProduct(product.id)}
+              className="text-slate-400 hover:text-rose-600 p-1 transition-colors"
+              title="在庫を削除"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
 
           <h4 className="font-semibold text-sm text-slate-900 line-clamp-2 leading-snug">

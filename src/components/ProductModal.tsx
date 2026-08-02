@@ -16,7 +16,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   initialJanCode = '',
   onTriggerScanner
 }) => {
-  const { addProduct, addPreset, getProductByJanCode, locations, tags, presets } = useStock();
+  const { addProduct, addPreset, getProductByJanCode, products, locations, tags, presets } = useStock();
 
   const [janCode, setJanCode] = useState('');
   const [name, setName] = useState('');
@@ -37,6 +37,13 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   useEffect(() => {
     if (initialJanCode) {
       setJanCode(initialJanCode);
+      const matched = getProductByJanCode(initialJanCode);
+      if (matched) {
+        setName(matched.name);
+        setLocation(matched.location);
+        setSelectedTags(matched.tags);
+        if (matched.image_url) setImagePreview(matched.image_url);
+      }
     }
   }, [initialJanCode]);
 
@@ -90,17 +97,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     }
 
     const finalJan = janCode.trim() || `JAN-${Date.now()}`;
-    const existing = getProductByJanCode(finalJan);
-
-    if (existing) {
-      setError(`JANコード "${finalJan}" は既に「${existing.name}」として登録されています。`);
-      return;
-    }
-
     setIsSubmitting(true);
     let finalImageUrl = imageUrl.trim() || null;
 
-    // Handle File Upload if an image file was selected
     if (imageFile) {
       setIsUploading(true);
       try {
@@ -112,6 +111,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       }
     }
 
+    // addProduct handles existing JAN code / product name by incrementing stock automatically!
     const result = await addProduct({
       jan_code: finalJan,
       name: name.trim(),
@@ -134,7 +134,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     setIsSubmitting(false);
 
     if (result) {
-      // Reset
       setJanCode('');
       setName('');
       setCurrentStock(1);
@@ -154,7 +153,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50 shrink-0">
           <div className="flex items-center gap-2">
             <Package className="w-5 h-5 text-blue-600" />
-            <h3 className="font-bold text-slate-800 text-sm">在庫商品の新規登録</h3>
+            <h3 className="font-bold text-slate-800 text-sm">在庫商品の新規追加・補充</h3>
           </div>
           <button
             onClick={onClose}
@@ -309,12 +308,12 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
           {/* Initial Stock Count */}
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700">初期在庫数</label>
+            <label className="text-xs font-semibold text-slate-700">追加・補充数量</label>
             <input
               type="number"
-              min="0"
+              min="1"
               value={currentStock}
-              onChange={(e) => setCurrentStock(parseInt(e.target.value) || 0)}
+              onChange={(e) => setCurrentStock(parseInt(e.target.value) || 1)}
               className="w-full px-3.5 py-2 text-xs font-mono font-bold rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
             />
           </div>
@@ -378,7 +377,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 </>
               ) : (
                 <>
-                  <Plus className="w-4 h-4" /> 在庫に追加
+                  <Plus className="w-4 h-4" /> 在庫に追加・補充
                 </>
               )}
             </button>
