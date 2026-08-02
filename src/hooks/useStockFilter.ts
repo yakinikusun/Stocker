@@ -25,7 +25,7 @@ export function useStockFilter(products: Product[]) {
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase().trim();
         const matchesName = product.name.toLowerCase().includes(query);
-        const matchesJan = product.jan_code.toLowerCase().includes(query);
+        const matchesJan = product.jan_code ? product.jan_code.toLowerCase().includes(query) : false;
         const matchesLocation = product.location.toLowerCase().includes(query);
         const matchesTags = product.tags.some((t) => t.toLowerCase().includes(query));
 

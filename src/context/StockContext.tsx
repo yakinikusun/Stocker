@@ -49,17 +49,19 @@ interface StockContextType {
   updateTag: (id: string, name: string, color?: string) => Promise<boolean>;
   deleteTag: (id: string) => Promise<boolean>;
 
-  // Presets CRUD & Edit
+  // Presets CRUD & Edit (Unlinked location)
   addPreset: (preset: Omit<Preset, 'id' | 'created_at' | 'updated_at'>) => Promise<boolean>;
   updatePreset: (id: string, updated: Partial<Preset>) => Promise<boolean>;
   deletePreset: (id: string) => Promise<boolean>;
-  createProductFromPreset: (preset: Preset, stockCount?: number) => Promise<Product | null>;
+  createProductFromPreset: (preset: Preset, targetLocation: string, stockCount?: number) => Promise<Product | null>;
 
-  // Products & Stock CRUD
+  // Products & Stock CRUD & Edit
   addProduct: (newProd: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => Promise<Product | null>;
+  updateProduct: (id: string, updatedFields: Partial<Product>) => Promise<boolean>;
   adjustStock: (productId: string, changeAmount: number) => Promise<boolean>;
   deleteProduct: (productId: string) => Promise<boolean>;
   getProductByJanCode: (janCode: string) => Product | undefined;
+  getProductsByJanCode: (janCode: string) => Product[];
   cleanUpZeroStockProducts: (maxAgeHours?: number) => Promise<number>;
   resetToDefaultDemoData: () => void;
   refreshData: () => Promise<void>;
@@ -123,9 +125,9 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             user_id: h.user_id,
             change_amount: h.change_amount,
             created_at: h.created_at,
-            product_name: h.products?.name,
-            jan_code: h.products?.jan_code,
-            location: h.products?.location,
+            product_name: h.product_name || h.products?.name || '商品',
+            jan_code: h.jan_code ?? h.products?.jan_code ?? '',
+            location: h.location || h.products?.location || '冷蔵庫',
             user_email: h.profiles?.email,
             user_name: h.profiles?.name
           }));
@@ -158,7 +160,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const client = getSupabaseClient();
     if (client && isSupabaseActive) {
       const channel = client
-        .channel('public-stock-changes-v8')
+        .channel('public-stock-changes-v10')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchAllData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_history' }, fetchAllData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, fetchAllData)
@@ -175,6 +177,11 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const getProductByJanCode = (janCode: string) => {
     if (!janCode.trim()) return undefined;
     return products.find((p) => p.jan_code === janCode.trim());
+  };
+
+  const getProductsByJanCode = (janCode: string): Product[] => {
+    if (!janCode.trim()) return [];
+    return products.filter((p) => p.jan_code === janCode.trim());
   };
 
   // Location Handlers (Admin Only Deletion)
@@ -288,7 +295,6 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         jan_code: preset.jan_code,
         name: preset.name,
         image_url: preset.image_url,
-        location: preset.location,
         tags: preset.tags
       }]);
       if (error) { alert(`プリセット追加エラー: ${error.message}`); return false; }
@@ -354,31 +360,41 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Add stock from Preset (increment existing if already in products)
-  const createProductFromPreset = async (preset: Preset, stockCount: number = 1): Promise<Product | null> => {
-    // 1. Find existing by JAN or Name
-    const existing = products.find(p => (preset.jan_code && p.jan_code === preset.jan_code) || p.name === preset.name);
+  // Add stock from Preset
+  const createProductFromPreset = async (
+    preset: Preset,
+    targetLocation: string = '冷蔵庫',
+    stockCount: number = 1
+  ): Promise<Product | null> => {
+    const existing = products.find(p =>
+      ((preset.jan_code && p.jan_code && p.jan_code === preset.jan_code) || p.name.trim() === preset.name.trim()) &&
+      p.location === targetLocation
+    );
 
     if (existing) {
       await adjustStock(existing.id, stockCount);
       return existing;
     } else {
-      const jan = preset.jan_code || `JAN-${Date.now()}`;
+      const jan = preset.jan_code || '';
       return await addProduct({
         jan_code: jan,
         name: preset.name,
         image_url: preset.image_url,
         current_stock: stockCount,
-        location: preset.location,
+        location: targetLocation,
         tags: preset.tags
       });
     }
   };
 
-  // Product CRUD
+  // Product CRUD & Edit
   const addProduct = async (newProd: Omit<Product, 'id' | 'created_at' | 'updated_at'>): Promise<Product | null> => {
-    // If JAN or Name matches existing product, increment stock instead of failing!
-    const existing = products.find(p => (newProd.jan_code && p.jan_code === newProd.jan_code) || p.name === newProd.name);
+    // Automatically increment stock ONLY IF BOTH jan_code (if present) AND name match at the same location!
+    const existing = products.find(
+      p => ((newProd.jan_code && p.jan_code) ? p.jan_code === newProd.jan_code : true) &&
+           p.name.trim().toLowerCase() === newProd.name.trim().toLowerCase() &&
+           p.location === (newProd.location || '冷蔵庫')
+    );
 
     if (existing) {
       await adjustStock(existing.id, newProd.current_stock > 0 ? newProd.current_stock : 1);
@@ -392,7 +408,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const { data, error } = await client
         .from('products')
         .insert([{
-          jan_code: newProd.jan_code,
+          jan_code: newProd.jan_code || null,
           name: newProd.name,
           image_url: newProd.image_url,
           current_stock: newProd.current_stock,
@@ -411,7 +427,10 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         await client.from('stock_history').insert([{
           product_id: data.id,
           user_id: user?.id || null,
-          change_amount: newProd.current_stock
+          change_amount: newProd.current_stock,
+          product_name: newProd.name,
+          jan_code: newProd.jan_code || null,
+          location: newProd.location || '冷蔵庫'
         }]);
       }
 
@@ -421,6 +440,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const created: Product = {
         ...newProd,
         id: `prod-${Date.now()}`,
+        jan_code: newProd.jan_code || '',
         location: newProd.location || '冷蔵庫',
         tags: newProd.tags || [],
         created_at: now,
@@ -439,7 +459,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           change_amount: created.current_stock,
           created_at: now,
           product_name: created.name,
-          jan_code: created.jan_code,
+          jan_code: created.jan_code || '',
           location: created.location,
           user_email: user?.email || 'guest@freezer.local',
           user_name: user?.name || 'ゲスト'
@@ -453,12 +473,42 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Stock Adjustment
+  const updateProduct = async (id: string, updatedFields: Partial<Product>): Promise<boolean> => {
+    const client = getSupabaseClient();
+    const now = new Date().toISOString();
+
+    if (client && isSupabaseActive) {
+      const { error } = await client.from('products').update({
+        ...updatedFields,
+        updated_at: now
+      }).eq('id', id);
+
+      if (error) {
+        alert(`商品更新エラー: ${error.message}`);
+        return false;
+      }
+      await fetchAllData();
+      return true;
+    } else {
+      const updatedProducts = products.map(p => p.id === id ? { ...p, ...updatedFields, updated_at: now } : p);
+      setProducts(updatedProducts);
+      saveLocalProducts(updatedProducts);
+      return true;
+    }
+  };
+
   const adjustStock = async (productId: string, changeAmount: number): Promise<boolean> => {
     const targetProduct = products.find((p) => p.id === productId);
     if (!targetProduct) return false;
 
-    const newStock = Math.max(0, targetProduct.current_stock + changeAmount);
+    if (targetProduct.current_stock === 0 && changeAmount < 0) {
+      return false;
+    }
+
+    const actualChange = changeAmount < 0 ? Math.max(-targetProduct.current_stock, changeAmount) : changeAmount;
+    if (actualChange === 0) return false;
+
+    const newStock = Math.max(0, targetProduct.current_stock + actualChange);
     const client = getSupabaseClient();
     const now = new Date().toISOString();
     const currentUserId = user?.id || 'usr-guest';
@@ -477,7 +527,10 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       await client.from('stock_history').insert([{
         product_id: productId,
         user_id: user?.id || null,
-        change_amount: changeAmount
+        change_amount: actualChange,
+        product_name: targetProduct.name,
+        jan_code: targetProduct.jan_code || null,
+        location: targetProduct.location
       }]);
 
       await fetchAllData();
@@ -502,7 +555,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (isCompressible) {
         const updatedLatest: StockHistory = {
           ...latestLog,
-          change_amount: latestLog.change_amount + changeAmount,
+          change_amount: latestLog.change_amount + actualChange,
           created_at: now
         };
         updatedHistories = [updatedLatest, ...histories.slice(1)];
@@ -511,10 +564,10 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           id: `hist-${Date.now()}`,
           product_id: productId,
           user_id: currentUserId,
-          change_amount: changeAmount,
+          change_amount: actualChange,
           created_at: now,
           product_name: targetProduct.name,
-          jan_code: targetProduct.jan_code,
+          jan_code: targetProduct.jan_code || '',
           location: targetProduct.location,
           user_email: user?.email || 'guest@freezer.local',
           user_name: user?.name || 'ゲスト'
@@ -529,7 +582,6 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Product Deletion: Open to ALL users; records a stock history entry setting quantity to 0 before deleting
   const deleteProduct = async (productId: string): Promise<boolean> => {
     const targetProduct = products.find(p => p.id === productId);
     if (!targetProduct) return false;
@@ -537,13 +589,15 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const client = getSupabaseClient();
     const now = new Date().toISOString();
 
-    // 1. Record stock history setting remaining stock to 0 (if stock > 0)
     if (targetProduct.current_stock > 0) {
       if (client && isSupabaseActive) {
         await client.from('stock_history').insert([{
           product_id: productId,
           user_id: user?.id || null,
-          change_amount: -targetProduct.current_stock
+          change_amount: -targetProduct.current_stock,
+          product_name: targetProduct.name,
+          jan_code: targetProduct.jan_code || null,
+          location: targetProduct.location
         }]);
       } else {
         const clearHistoryItem: StockHistory = {
@@ -553,7 +607,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           change_amount: -targetProduct.current_stock,
           created_at: now,
           product_name: targetProduct.name,
-          jan_code: targetProduct.jan_code,
+          jan_code: targetProduct.jan_code || '',
           location: targetProduct.location,
           user_email: user?.email || 'guest@freezer.local',
           user_name: user?.name || 'ゲスト'
@@ -564,7 +618,6 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
 
-    // 2. Perform deletion
     if (client && isSupabaseActive) {
       const { error } = await client.from('products').delete().eq('id', productId);
       if (error) { alert(`削除エラー: ${error.message}`); return false; }
@@ -588,7 +641,6 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Clean up 0-stock products that have been at 0 for > maxAgeHours (default 24h)
   const cleanUpZeroStockProducts = async (maxAgeHours: number = 24): Promise<number> => {
     const cutoffTime = Date.now() - maxAgeHours * 60 * 60 * 1000;
     const staleZeroStockProducts = products.filter(p => {
@@ -647,9 +699,11 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         createProductFromPreset,
 
         addProduct,
+        updateProduct,
         adjustStock,
         deleteProduct,
         getProductByJanCode,
+        getProductsByJanCode,
         cleanUpZeroStockProducts,
         resetToDefaultDemoData,
         refreshData: fetchAllData

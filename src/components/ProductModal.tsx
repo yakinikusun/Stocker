@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Camera, Plus, Package, Upload, Image as ImageIcon, BookmarkPlus, Tag as TagIcon, FolderKanban, Loader2 } from 'lucide-react';
+import { X, Camera, Plus, Package, Upload, Image as ImageIcon, BookmarkPlus, Tag as TagIcon, FolderKanban, Loader2, ChevronDown, CheckCircle2 } from 'lucide-react';
 import { useStock } from '../context/StockContext';
 import { uploadProductImage } from '../lib/supabase';
+import { Product } from '../types/stock';
 
 interface ProductModalProps {
   isOpen: boolean;
@@ -16,7 +17,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   initialJanCode = '',
   onTriggerScanner
 }) => {
-  const { addProduct, addPreset, getProductByJanCode, products, locations, tags, presets } = useStock();
+  const { addProduct, addPreset, adjustStock, getProductsByJanCode, locations, tags, presets } = useStock();
 
   const [janCode, setJanCode] = useState('');
   const [name, setName] = useState('');
@@ -29,20 +30,27 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [saveAsPreset, setSaveAsPreset] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState('');
+  const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const tagDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // Check matching existing products by BOTH JAN Code AND Product Name
+  const matchingJanProducts = (janCode.trim() && name.trim())
+    ? getProductsByJanCode(janCode.trim()).filter(p => p.name.trim().toLowerCase() === name.trim().toLowerCase())
+    : [];
 
   useEffect(() => {
     if (initialJanCode) {
       setJanCode(initialJanCode);
-      const matched = getProductByJanCode(initialJanCode);
-      if (matched) {
-        setName(matched.name);
-        setLocation(matched.location);
-        setSelectedTags(matched.tags);
-        if (matched.image_url) setImagePreview(matched.image_url);
+      const matches = getProductsByJanCode(initialJanCode);
+      if (matches.length > 0) {
+        setName(matches[0].name);
+        setLocation(matches[0].location);
+        setSelectedTags(matches[0].tags);
+        if (matches[0].image_url) setImagePreview(matches[0].image_url);
       }
     }
   }, [initialJanCode]);
@@ -52,6 +60,17 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       setLocation(locations[0].name);
     }
   }, [locations]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (tagDropdownRef.current && !tagDropdownRef.current.contains(event.target as Node)) {
+        setIsTagDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   if (!isOpen) return null;
 
@@ -66,7 +85,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
   const toggleTag = (tagName: string) => {
     if (selectedTags.includes(tagName)) {
-      setSelectedTags(selectedTags.filter(t => t !== tagName));
+      setSelectedTags(selectedTags.filter((t) => t !== tagName));
     } else {
       setSelectedTags([...selectedTags, tagName]);
     }
@@ -74,17 +93,23 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
   const handleSelectPresetCall = (presetId: string) => {
     setSelectedPresetId(presetId);
-    const target = presets.find(p => p.id === presetId);
+    setSaveAsPreset(false); // Task 1: Don't allow re-adding preset if created from preset!
+
+    const target = presets.find((p) => p.id === presetId);
     if (target) {
       setName(target.name);
       if (target.jan_code) setJanCode(target.jan_code);
-      if (target.location) setLocation(target.location);
       if (target.tags) setSelectedTags(target.tags);
       if (target.image_url) {
         setImageUrl(target.image_url);
         setImagePreview(target.image_url);
       }
     }
+  };
+
+  const handleIncrementMatchingProduct = async (product: Product) => {
+    await adjustStock(product.id, currentStock);
+    onClose();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -96,7 +121,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       return;
     }
 
-    const finalJan = janCode.trim() || `JAN-${Date.now()}`;
+    const finalJan = janCode.trim();
     setIsSubmitting(true);
     let finalImageUrl = imageUrl.trim() || null;
 
@@ -111,7 +136,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       }
     }
 
-    // addProduct handles existing JAN code / product name by incrementing stock automatically!
     const result = await addProduct({
       jan_code: finalJan,
       name: name.trim(),
@@ -121,11 +145,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       image_url: finalImageUrl
     });
 
-    if (result && saveAsPreset) {
+    // Task 1: Save as preset only if NOT selected from an existing preset!
+    if (result && saveAsPreset && !selectedPresetId) {
       await addPreset({
         jan_code: finalJan,
         name: name.trim(),
-        location: location || '冷蔵庫',
         tags: selectedTags,
         image_url: finalImageUrl
       });
@@ -142,6 +166,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       setImagePreview(null);
       setSelectedTags([]);
       setSaveAsPreset(false);
+      setSelectedPresetId('');
       onClose();
     }
   };
@@ -184,10 +209,43 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 <option value="">-- 登録済みプリセットを選択 --</option>
                 {presets.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name} ({p.location})
+                    {p.name}
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+
+          {/* Task 2: Duplicate JAN Code Item Selector */}
+          {matchingJanProducts.length > 0 && (
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+                <CheckCircle2 className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>同じJANコードの商品が {matchingJanProducts.length} 件見つかりました</span>
+              </div>
+              <p className="text-[11px] text-amber-800">
+                既存の在庫を増やす場合は商品を選択してください（新しい場所に追加する場合はフォームから保存してください）：
+              </p>
+              <div className="space-y-1.5 pt-1">
+                {matchingJanProducts.map((prod) => (
+                  <div
+                    key={prod.id}
+                    className="p-2.5 rounded-lg bg-white border border-amber-200 flex items-center justify-between gap-2"
+                  >
+                    <div className="min-w-0">
+                      <span className="font-bold text-xs text-slate-900 block truncate">{prod.name}</span>
+                      <span className="text-[10px] text-blue-700">場所: {prod.location} | 現在数: {prod.current_stock}個</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleIncrementMatchingProduct(prod)}
+                      className="px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-semibold shrink-0"
+                    >
+                      +{currentStock} 加算
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -283,7 +341,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           {/* JAN Code Field */}
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
-              <span>JANコード (バーコード)</span>
+              <span>JANコード (任意)</span>
               {onTriggerScanner && (
                 <button
                   type="button"
@@ -318,44 +376,61 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             />
           </div>
 
-          {/* Tags Selector */}
-          <div className="space-y-1">
+          {/* Task 4: Tag Selector (Dropdown + Checkboxes) */}
+          <div className="space-y-1 relative" ref={tagDropdownRef}>
             <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-              <TagIcon className="w-3.5 h-3.5 text-amber-500" /> タグを選択
+              <TagIcon className="w-3.5 h-3.5 text-amber-500" /> 分類タグ (ドロップダウン選択)
             </label>
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {tags.map((t) => {
-                const isSelected = selectedTags.includes(t.name);
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => toggleTag(t.name)}
-                    className={`px-2.5 py-1 text-xs rounded-lg border transition-all ${
-                      isSelected
-                        ? 'bg-blue-600 text-white border-blue-600 font-semibold'
-                        : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200'
-                    }`}
-                  >
-                    {t.name}
-                  </button>
-                );
-              })}
-            </div>
+            <button
+              type="button"
+              onClick={() => setIsTagDropdownOpen(!isTagDropdownOpen)}
+              className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-left flex items-center justify-between"
+            >
+              <span className="truncate">
+                {selectedTags.length === 0
+                  ? '未選択 (クリックして選択)'
+                  : `${selectedTags.join(', ')} (${selectedTags.length}件選択中)`}
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+
+            {isTagDropdownOpen && (
+              <div className="absolute top-full left-0 right-0 mt-1 z-20 p-2 rounded-xl bg-white border border-slate-200 shadow-xl max-h-48 overflow-y-auto space-y-1">
+                {tags.map((t) => {
+                  const isChecked = selectedTags.includes(t.name);
+                  return (
+                    <label
+                      key={t.id}
+                      className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer text-xs"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleTag(t.name)}
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="font-medium text-slate-800">#{t.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Save to Preset Checkbox */}
-          <div className="pt-2">
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-purple-900 bg-purple-50 p-2.5 rounded-xl border border-purple-200">
-              <input
-                type="checkbox"
-                checked={saveAsPreset}
-                onChange={(e) => setSaveAsPreset(e.target.checked)}
-                className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500"
-              />
-              <span>この商品を在庫プリセットにも追加保存する</span>
-            </label>
-          </div>
+          {/* Task 1: Save to Preset Checkbox (Only if NOT created from preset) */}
+          {!selectedPresetId && (
+            <div className="pt-2">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-purple-900 bg-purple-50 p-2.5 rounded-xl border border-purple-200">
+                <input
+                  type="checkbox"
+                  checked={saveAsPreset}
+                  onChange={(e) => setSaveAsPreset(e.target.checked)}
+                  className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500"
+                />
+                <span>この商品を在庫プリセットにも追加保存する</span>
+              </label>
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex gap-2 pt-3">
@@ -377,7 +452,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 </>
               ) : (
                 <>
-                  <Plus className="w-4 h-4" /> 在庫に追加・補充
+                  <Plus className="w-4 h-4" /> 新規在庫として保存
                 </>
               )}
             </button>

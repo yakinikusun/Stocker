@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, Trash2, Minus, Plus } from 'lucide-react';
+import { Package, Trash2, Minus, Plus, Pencil } from 'lucide-react';
 import { Product } from '../types/stock';
 
 interface ProductCardProps {
@@ -7,6 +7,7 @@ interface ProductCardProps {
   isAdmin: boolean;
   onAdjustStock: (productId: string, amount: number) => void;
   onSelectProductForAdjust: (product: Product) => void;
+  onSelectProductForEdit: (product: Product) => void;
   onDeleteProduct: (productId: string) => void;
 }
 
@@ -15,6 +16,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   isAdmin,
   onAdjustStock,
   onSelectProductForAdjust,
+  onSelectProductForEdit,
   onDeleteProduct
 }) => {
   const isOutOfStock = product.current_stock === 0;
@@ -47,14 +49,25 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               </span>
             )}
 
-            {/* Delete button open to all users (records 0-stock history log before removal) */}
-            <button
-              onClick={() => onDeleteProduct(product.id)}
-              className="text-slate-400 hover:text-rose-600 p-1 transition-colors"
-              title="在庫を削除"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-0.5">
+              {/* Task 6: Edit product info button */}
+              <button
+                onClick={() => onSelectProductForEdit(product)}
+                className="text-slate-400 hover:text-blue-600 p-1 transition-colors"
+                title="編集"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Task 8 & 9: Delete stock item (open to all users) */}
+              <button
+                onClick={() => onDeleteProduct(product.id)}
+                className="text-slate-400 hover:text-rose-600 p-1 transition-colors"
+                title="在庫を削除"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
           <h4 className="font-semibold text-sm text-slate-900 line-clamp-2 leading-snug">
@@ -84,10 +97,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5">
+          {/* Task 5: Disable minus button if current_stock <= 0 */}
           <button
             onClick={() => onAdjustStock(product.id, -1)}
             disabled={product.current_stock <= 0}
-            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-700 hover:text-rose-700 border border-slate-200 flex items-center justify-center transition-colors disabled:opacity-30"
+            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-700 hover:text-rose-700 border border-slate-200 flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             title="-1 消費"
           >
             <Minus className="w-3.5 h-3.5" />
@@ -97,7 +111,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             onClick={() => onSelectProductForAdjust(product)}
             className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 text-xs font-semibold transition-colors"
           >
-            変更
+            数量変更
           </button>
 
           <button

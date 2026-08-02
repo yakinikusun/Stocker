@@ -53,10 +53,9 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
   const [editTagName, setEditTagName] = useState('');
 
-  // Preset input state
+  // Preset input state (Task 3: unlinked location)
   const [presetName, setPresetName] = useState('');
   const [presetJan, setPresetJan] = useState('');
-  const [presetLocation, setPresetLocation] = useState('冷蔵庫');
   const [presetTag, setPresetTag] = useState('');
   const [presetImageFile, setPresetImageFile] = useState<File | null>(null);
   const [presetImagePreview, setPresetImagePreview] = useState<string | null>(null);
@@ -65,10 +64,10 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
   const [editingPreset, setEditingPreset] = useState<Preset | null>(null);
   const [editPresetName, setEditPresetName] = useState('');
   const [editPresetJan, setEditPresetJan] = useState('');
-  const [editPresetLocation, setEditPresetLocation] = useState('');
 
-  // Preset Quantity Call Modal
+  // Preset Quantity & Location Call Modal (Task 3 & Task 6)
   const [selectedPresetForCall, setSelectedPresetForCall] = useState<Preset | null>(null);
+  const [callLocation, setCallLocation] = useState<string>('冷蔵庫');
   const [callQuantity, setCallQuantity] = useState<number>(1);
 
   const [isUploading, setIsUploading] = useState(false);
@@ -130,7 +129,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
     }
   };
 
-  // Preset Handlers
+  // Preset Handlers (Unlinked location)
   const handleAddPresetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!presetName.trim()) return;
@@ -150,7 +149,6 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
     const ok = await addPreset({
       name: presetName.trim(),
       jan_code: presetJan.trim() || undefined,
-      location: presetLocation,
       tags: presetTag ? [presetTag] : [],
       image_url: imageUrl
     });
@@ -170,8 +168,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
 
     const ok = await updatePreset(editingPreset.id, {
       name: editPresetName.trim(),
-      jan_code: editPresetJan.trim() || undefined,
-      location: editPresetLocation
+      jan_code: editPresetJan.trim() || undefined
     });
 
     if (ok) {
@@ -180,11 +177,12 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
     }
   };
 
-  // Execute Call Preset with Quantity
+  // Execute Call Preset with Location & Quantity
   const handleExecuteCallPreset = async () => {
     if (!selectedPresetForCall) return;
-    await createProductFromPreset(selectedPresetForCall, Math.max(1, callQuantity));
-    showTempMessage(`「${selectedPresetForCall.name}」を ${callQuantity} 個在庫に追加しました。`);
+    const loc = callLocation || (locations[0]?.name ?? '冷蔵庫');
+    await createProductFromPreset(selectedPresetForCall, loc, Math.max(1, callQuantity));
+    showTempMessage(`「${selectedPresetForCall.name}」を (${loc}) に ${callQuantity} 個在庫追加しました。`);
     setSelectedPresetForCall(null);
     setCallQuantity(1);
   };
@@ -199,7 +197,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
               <Layers className="w-5 h-5 text-blue-600" /> 在庫設定マスタ管理
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              冷蔵庫・冷凍庫等の保管場所、分類タグ、再注文用プリセットの確認・編集・追加・削除を行えます。
+              冷蔵庫・冷凍庫等の保管場所、分類タグ、汎用在庫プリセットの確認・編集・追加・削除を行えます。
             </p>
           </div>
         </div>
@@ -317,7 +315,6 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
 
-                          {/* Requirement 10: Delete location is restricted to admin only */}
                           {user?.role === 'admin' && (
                             <button
                               onClick={() => {
@@ -342,7 +339,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
         </div>
       )}
 
-      {/* Tab 2: Stock Presets */}
+      {/* Tab 2: Stock Presets (Task 3: Unlinked Location) */}
       {activeSubTab === 'presets' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="clean-card p-5 space-y-4 md:col-span-1">
@@ -351,7 +348,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
             </h3>
             <form onSubmit={handleAddPresetSubmit} className="space-y-3">
               <div>
-                <label className="text-xs font-medium text-slate-600 block mb-1">商品名 *</label>
+                <label className="text-xs font-medium text-slate-600 block mb-1">商品テンプレート名 *</label>
                 <input
                   type="text"
                   required
@@ -360,21 +357,6 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                   onChange={(e) => setPresetName(e.target.value)}
                   className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none focus:border-purple-500"
                 />
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-slate-600 block mb-1">保管場所</label>
-                <select
-                  value={presetLocation}
-                  onChange={(e) => setPresetLocation(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none"
-                >
-                  {locations.map((l) => (
-                    <option key={l.id} value={l.name}>
-                      {l.name}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               <div>
@@ -417,7 +399,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                 disabled={isUploading}
                 className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all"
               >
-                <Plus className="w-4 h-4" /> プリセットを登録
+                <Plus className="w-4 h-4" /> 汎用プリセットを登録
               </button>
             </form>
           </div>
@@ -442,24 +424,13 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                           onChange={(e) => setEditPresetName(e.target.value)}
                           className="w-full px-2.5 py-1 text-xs rounded-lg border border-purple-500 focus:outline-none"
                         />
-                        <div className="flex gap-2">
-                          <select
-                            value={editPresetLocation}
-                            onChange={(e) => setEditPresetLocation(e.target.value)}
-                            className="flex-1 px-2 py-1 text-[11px] rounded-lg border border-slate-300"
-                          >
-                            {locations.map((l) => (
-                              <option key={l.id} value={l.name}>{l.name}</option>
-                            ))}
-                          </select>
-                          <input
-                            type="text"
-                            placeholder="JAN"
-                            value={editPresetJan}
-                            onChange={(e) => setEditPresetJan(e.target.value)}
-                            className="flex-1 px-2 py-1 text-[11px] font-mono rounded-lg border border-slate-300"
-                          />
-                        </div>
+                        <input
+                          type="text"
+                          placeholder="JANコード"
+                          value={editPresetJan}
+                          onChange={(e) => setEditPresetJan(e.target.value)}
+                          className="w-full px-2 py-1 text-[11px] font-mono rounded-lg border border-slate-300"
+                        />
                         <div className="flex justify-end gap-1.5 pt-1">
                           <button type="button" onClick={() => setEditingPreset(null)} className="px-2.5 py-1 text-[11px] rounded border border-slate-300">
                             キャンセル
@@ -485,9 +456,6 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                           )}
                           <div className="min-w-0">
                             <h4 className="font-semibold text-xs text-slate-800 truncate">{pst.name}</h4>
-                            <span className="inline-block px-2 py-0.5 mt-1 rounded bg-blue-100 text-blue-700 text-[10px] font-medium">
-                              {pst.location}
-                            </span>
                             {pst.jan_code && (
                               <p className="font-mono text-[10px] text-slate-400 mt-1">JAN: {pst.jan_code}</p>
                             )}
@@ -495,14 +463,14 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                         </div>
 
                         <div className="flex flex-col items-end gap-2 shrink-0">
-                          {/* Requirement 6: Select quantity when calling preset to stock */}
                           <button
                             onClick={() => {
                               setSelectedPresetForCall(pst);
+                              setCallLocation(locations[0]?.name || '冷蔵庫');
                               setCallQuantity(1);
                             }}
                             className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-semibold shadow-sm flex items-center gap-1 transition-all"
-                            title="個数を指定して在庫に追加"
+                            title="場所・個数を指定して在庫に追加"
                           >
                             <Sparkles className="w-3 h-3" /> 在庫に追加
                           </button>
@@ -513,7 +481,6 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                                 setEditingPreset(pst);
                                 setEditPresetName(pst.name);
                                 setEditPresetJan(pst.jan_code || '');
-                                setEditPresetLocation(pst.location);
                               }}
                               className="text-slate-400 hover:text-purple-600 transition-colors p-1"
                               title="編集"
@@ -632,13 +599,13 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
         </div>
       )}
 
-      {/* Requirement 6: Preset Quantity Prompt Modal */}
+      {/* Task 3 & 6: Preset Location + Quantity Prompt Modal */}
       {selectedPresetForCall && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
           <div className="relative w-full max-w-sm overflow-hidden rounded-2xl clean-modal border border-slate-200 p-5 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-purple-600" /> プリセットから追加
+                <Sparkles className="w-4 h-4 text-purple-600" /> プリセットから在庫に追加
               </h3>
               <button onClick={() => setSelectedPresetForCall(null)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-4 h-4" />
@@ -655,10 +622,29 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
               )}
               <div className="min-w-0 flex-1">
                 <p className="font-bold text-xs text-slate-900 truncate">{selectedPresetForCall.name}</p>
-                <p className="text-[10px] text-purple-700 mt-0.5">保管場所: {selectedPresetForCall.location}</p>
+                {selectedPresetForCall.jan_code && (
+                  <p className="text-[10px] text-purple-700 font-mono mt-0.5">JAN: {selectedPresetForCall.jan_code}</p>
+                )}
               </div>
             </div>
 
+            {/* Target Storage Location Selection (Task 3) */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700 block">追加先の保管場所 *</label>
+              <select
+                value={callLocation}
+                onChange={(e) => setCallLocation(e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none"
+              >
+                {locations.map((loc) => (
+                  <option key={loc.id} value={loc.name}>
+                    {loc.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Quantity Controls */}
             <div className="space-y-1">
               <label className="text-xs font-semibold text-slate-700 block">追加個数</label>
               <div className="flex items-center justify-center gap-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
@@ -699,7 +685,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                 onClick={handleExecuteCallPreset}
                 className="flex-1 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold"
               >
-                {callQuantity} 個を追加
+                ({callLocation}) に {callQuantity} 個追加
               </button>
             </div>
           </div>

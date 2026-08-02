@@ -36,13 +36,12 @@ INSERT INTO public.tags (name, color) VALUES
   ('お菓子', '#ec4899')
 ON CONFLICT (name) DO NOTHING;
 
--- 3. 在庫プリセットマスタ (presets) - 在庫切れ後の再呼び出し用
+-- 3. 在庫プリセットマスタ (presets) - 在庫切れ後の再呼び出し用 (保管場所非紐付け)
 CREATE TABLE IF NOT EXISTS public.presets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   jan_code TEXT,
   name TEXT NOT NULL,
   image_url TEXT,
-  location TEXT NOT NULL DEFAULT '冷蔵庫',
   tags TEXT[] DEFAULT '{}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -51,7 +50,7 @@ CREATE TABLE IF NOT EXISTS public.presets (
 -- 4. 商品マスタ (products)
 CREATE TABLE IF NOT EXISTS public.products (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  jan_code TEXT UNIQUE NOT NULL,
+  jan_code TEXT,
   name TEXT NOT NULL,
   image_url TEXT,
   current_stock INTEGER NOT NULL DEFAULT 0 CHECK (current_stock >= 0),
@@ -75,12 +74,15 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 6. 在庫操作履歴 (stock_history) - 追記専用ログ
+-- 6. 在庫操作履歴 (stock_history) - 追記専用ログ (商品名・場所・JANスナップショット保持)
 CREATE TABLE IF NOT EXISTS public.stock_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  product_id UUID REFERENCES public.products(id) ON DELETE SET NULL,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   change_amount INTEGER NOT NULL,
+  product_name TEXT,
+  jan_code TEXT,
+  location TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -165,10 +167,7 @@ CREATE POLICY "authenticated_all_presets" ON public.presets FOR ALL TO authentic
 CREATE POLICY "authenticated_select_products" ON public.products FOR SELECT TO authenticated USING (true);
 CREATE POLICY "authenticated_insert_products" ON public.products FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "authenticated_update_products" ON public.products FOR UPDATE TO authenticated USING (true);
-
--- 管理者のみ商品削除可能
-CREATE POLICY "admin_delete_products" ON public.products FOR DELETE TO authenticated
-  USING (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin'));
+CREATE POLICY "authenticated_delete_products" ON public.products FOR DELETE TO authenticated USING (true);
 
 -- 履歴ログ（追記専用、UPDATE/DELETE不可）
 CREATE POLICY "authenticated_select_history" ON public.stock_history FOR SELECT TO authenticated USING (true);

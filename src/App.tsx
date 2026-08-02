@@ -26,9 +26,9 @@ const AppContent: React.FC = () => {
   };
 
   const handleCallPresetToStock = async (preset: Preset) => {
-    const prod = await createProductFromPreset(preset, 1);
+    const prod = await createProductFromPreset(preset, '冷蔵庫', 1);
     if (prod) {
-      alert(`「${preset.name}」を【${preset.location}】の在庫に1個追加しました。`);
+      alert(`「${preset.name}」の在庫を1個追加しました。`);
       setActiveTab('main');
     }
   };
