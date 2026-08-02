@@ -11,10 +11,10 @@ export interface Tag {
 
 export interface Preset {
   id: string;
-  jan_code?: string;
+  jan_code?: string; // Optional
   name: string;
   image_url?: string | null;
-  location: string;
+  location?: string;
   tags: string[];
   created_at: string;
   updated_at: string;
@@ -22,7 +22,7 @@ export interface Preset {
 
 export interface Product {
   id: string;
-  jan_code: string;
+  jan_code?: string; // Optional
   name: string;
   image_url?: string | null;
   current_stock: number;

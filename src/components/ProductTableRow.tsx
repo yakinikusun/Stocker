@@ -1,17 +1,19 @@
 import React from 'react';
-import { Package, Minus, Plus } from 'lucide-react';
+import { Package, Minus, Plus, Pencil } from 'lucide-react';
 import { Product } from '../types/stock';
 
 interface ProductTableRowProps {
   product: Product;
   onAdjustStock: (productId: string, amount: number) => void;
   onSelectProductForAdjust: (product: Product) => void;
+  onSelectProductForEdit: (product: Product) => void;
 }
 
 export const ProductTableRow: React.FC<ProductTableRowProps> = ({
   product,
   onAdjustStock,
-  onSelectProductForAdjust
+  onSelectProductForAdjust,
+  onSelectProductForEdit
 }) => {
   const isOutOfStock = product.current_stock === 0;
 
@@ -32,7 +34,9 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
           )}
           <div>
             <span className="font-semibold text-slate-900 block">{product.name}</span>
-            <span className="font-mono text-[10px] text-slate-400">JAN: {product.jan_code}</span>
+            {product.jan_code ? (
+              <span className="font-mono text-[10px] text-slate-400 block">JAN: {product.jan_code}</span>
+            ) : null}
           </div>
         </div>
       </td>
@@ -60,16 +64,26 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
           <button
             onClick={() => onAdjustStock(product.id, -1)}
             disabled={product.current_stock <= 0}
-            className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-700 flex items-center justify-center transition-colors disabled:opacity-30"
+            className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-700 flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <Minus className="w-3.5 h-3.5" />
           </button>
+
           <button
             onClick={() => onSelectProductForAdjust(product)}
             className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-100 text-blue-700 text-[11px] font-semibold transition-colors"
           >
-            詳細
+            数量
           </button>
+
+          <button
+            onClick={() => onSelectProductForEdit(product)}
+            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors"
+            title="商品情報編集"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+
           <button
             onClick={() => onAdjustStock(product.id, 1)}
             className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-emerald-100 text-slate-700 flex items-center justify-center transition-colors"

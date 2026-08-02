@@ -98,7 +98,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     const success = await adjustStock(matchedProduct.id, amount);
     if (success) {
       setQuickAdjustSuccess(`${matchedProduct.name} の在庫を ${amount > 0 ? '+1' : '-1'} しました。`);
-      const updated = getProductByJanCode(matchedProduct.jan_code);
+      const updated = matchedProduct.jan_code ? getProductByJanCode(matchedProduct.jan_code) : undefined;
       setMatchedProduct(updated || null);
       setTimeout(() => setQuickAdjustSuccess(null), 3000);
     }
