@@ -27,6 +27,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
+  const [showImageControls, setShowImageControls] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const tagDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -35,12 +36,24 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
     if (product) {
       setName(product.name);
       setJanCode(product.jan_code || '');
-      setLocation(product.location);
+      setLocation(product.location || (locations[0]?.name ?? '冷蔵庫'));
       setSelectedTags(product.tags || []);
       setImagePreview(product.image_url || null);
       setImageFile(null);
+      setShowImageControls(false);
     }
-  }, [product]);
+  }, [product, locations]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (tagDropdownRef.current && !tagDropdownRef.current.contains(event.target as Node)) {
+        setIsTagDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   if (!isOpen || !product) return null;
 
@@ -49,6 +62,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
       const file = e.target.files[0];
       setImageFile(file);
       setImagePreview(URL.createObjectURL(file));
+      setShowImageControls(false);
     }
   };
 
@@ -126,23 +140,37 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
             className="hidden"
           />
           {imagePreview ? (
-            <div className="relative w-full h-32 rounded-xl overflow-hidden border border-slate-300 group">
+            <div
+              onClick={() => setShowImageControls(!showImageControls)}
+              className="relative w-full h-32 rounded-xl overflow-hidden border border-slate-300 group cursor-pointer"
+            >
               <img src={imagePreview} alt="プレビュー" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+              <div
+                className={`absolute inset-0 bg-slate-900/50 transition-opacity flex items-center justify-center gap-2 ${
+                  showImageControls
+                    ? 'opacity-100 pointer-events-auto'
+                    : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto'
+                }`}
+              >
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-3 py-1 text-xs bg-white font-semibold rounded-lg"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
+                  className="px-3.5 py-1.5 rounded-lg bg-white text-slate-800 text-xs font-semibold shadow-md active:scale-95 transition-all"
                 >
                   変更
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setImageFile(null);
                     setImagePreview(null);
+                    setShowImageControls(false);
                   }}
-                  className="px-3 py-1 text-xs bg-rose-600 text-white font-semibold rounded-lg"
+                  className="px-3.5 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold shadow-md active:scale-95 transition-all"
                 >
                   削除
                 </button>
@@ -151,7 +179,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
           ) : (
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="w-full h-20 rounded-xl border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center gap-2 cursor-pointer text-xs font-semibold text-slate-600"
+              className="w-full h-20 rounded-xl border border-dashed border-slate-300 bg-slate-50 hover:bg-blue-50/50 hover:border-blue-400 transition-all flex items-center justify-center gap-2 cursor-pointer text-xs font-semibold text-slate-600"
             >
               <Upload className="w-4 h-4" /> 画像をアップロード
             </div>
@@ -219,7 +247,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
 
         {/* JAN Code Field */}
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-slate-700 block">JANコード (任意)</label>
+          <label className="text-xs font-semibold text-slate-700">JANコード (任意)</label>
           <input
             type="text"
             value={janCode}
@@ -228,7 +256,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
           />
         </div>
 
-        {/* Submit / Cancel Buttons */}
+        {/* Action Buttons */}
         <div className="flex gap-2 pt-3">
           <button
             type="button"
@@ -242,15 +270,12 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
             disabled={isSubmitting || isUploading}
             className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all"
           >
-            {isUploading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" /> 画像送信中...
-              </>
+            {isUploading || isSubmitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <>
-                <Check className="w-4 h-4" /> 変更を保存
-              </>
+              <Check className="w-4 h-4" />
             )}
+            変更を保存
           </button>
         </div>
       </form>

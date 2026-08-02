@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Plus, Package, Upload, Image as ImageIcon, BookmarkPlus, Tag as TagIcon, FolderKanban, Loader2, ChevronDown, CheckCircle2, Lock, RotateCcw } from 'lucide-react';
+import { Camera, Plus, Package, Upload, Image as ImageIcon, BookmarkPlus, Tag as TagIcon, FolderKanban, Loader2, ChevronDown, Lock, RotateCcw } from 'lucide-react';
 import { useStock } from '../context/StockContext';
 import { uploadProductImage } from '../lib/supabase';
-import { Product } from '../types/stock';
 import { FormModal } from './FormModal';
 
 interface ProductModalProps {
@@ -31,6 +30,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [saveAsPreset, setSaveAsPreset] = useState(false);
   const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
+  const [showImageControls, setShowImageControls] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,6 +59,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const isExistingMatch = matchingJanProducts.length > 0;
   const matchedProduct = isExistingMatch ? matchingJanProducts[0] : null;
 
+  // Safely derive displayed image preview without unsafe useEffect state mutation loops
+  const displayImagePreview = isExistingMatch ? (matchedProduct?.image_url || null) : imagePreview;
+
   // Clear all form inputs
   const handleClearForm = () => {
     setName('');
@@ -69,24 +72,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     setImagePreview(null);
     setSelectedTags([]);
     setSaveAsPreset(false);
+    setShowImageControls(false);
     setError(null);
   };
-
-  // Sync image preview and tags cleanly when an existing product match is detected
-  useEffect(() => {
-    if (isExistingMatch && matchedProduct) {
-      if (matchedProduct.image_url) {
-        setImagePreview(matchedProduct.image_url);
-        setImageUrl(matchedProduct.image_url);
-      } else {
-        setImagePreview(null);
-        setImageUrl('');
-      }
-      if (matchedProduct.tags) {
-        setSelectedTags(matchedProduct.tags);
-      }
-    }
-  }, [name, janCode, location, isExistingMatch]);
 
   useEffect(() => {
     if (initialJanCode) {
@@ -126,6 +114,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       setImageFile(file);
       const objectUrl = URL.createObjectURL(file);
       setImagePreview(objectUrl);
+      setShowImageControls(false);
     }
   };
 
@@ -140,7 +129,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const handleSelectPresetCall = (presetId: string) => {
     setSaveAsPreset(false);
     if (!presetId) {
-      // Clear form when selecting default "-- 登録済みプリセットを選択 --" option
       handleClearForm();
       return;
     }
@@ -324,30 +312,46 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             onChange={handleImageFileChange}
             className="hidden"
           />
-          {imagePreview ? (
-            <div className="relative w-full h-36 rounded-xl overflow-hidden border border-slate-300 group">
+          {displayImagePreview ? (
+            <div
+              onClick={() => {
+                if (!isExistingMatch) setShowImageControls(!showImageControls);
+              }}
+              className="relative w-full h-36 rounded-xl overflow-hidden border border-slate-300 group cursor-pointer"
+            >
               <img
-                src={imagePreview}
+                src={displayImagePreview}
                 alt="プレビュー"
                 className="w-full h-full object-cover"
               />
               {!isExistingMatch && (
-                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <div
+                  className={`absolute inset-0 bg-slate-900/50 transition-opacity flex items-center justify-center gap-2 ${
+                    showImageControls
+                      ? 'opacity-100 pointer-events-auto'
+                      : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto'
+                  }`}
+                >
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-3 py-1.5 rounded-lg bg-white text-slate-800 text-xs font-semibold shadow-sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                    className="px-3.5 py-1.5 rounded-lg bg-white text-slate-800 text-xs font-semibold shadow-md active:scale-95 transition-all"
                   >
                     変更
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setImageFile(null);
                       setImagePreview(null);
                       setImageUrl('');
+                      setShowImageControls(false);
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold shadow-sm"
+                    className="px-3.5 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold shadow-md active:scale-95 transition-all"
                   >
                     削除
                   </button>
