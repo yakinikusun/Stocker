@@ -30,7 +30,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [saveAsPreset, setSaveAsPreset] = useState(false);
-  const [selectedPresetId, setSelectedPresetId] = useState('');
   const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
@@ -38,12 +37,15 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const tagDropdownRef = useRef<HTMLDivElement | null>(null);
 
-  // Helper to reset preset selection if user modifies form fields after choosing a preset
-  const resetPresetIfModified = () => {
-    if (selectedPresetId) {
-      setSelectedPresetId('');
-    }
-  };
+  // Reactively check if current input values match an existing Preset (by Name and optional JAN)
+  const matchedPreset = name.trim()
+    ? presets.find(p =>
+        p.name.trim().toLowerCase() === name.trim().toLowerCase() &&
+        (janCode.trim() ? (p.jan_code && p.jan_code.trim() === janCode.trim()) : true)
+      )
+    : null;
+
+  const selectedPresetId = matchedPreset ? matchedPreset.id : '';
 
   // Check matching existing product by JAN Code (if present) AND Product Name AND Storage Location
   const matchingJanProducts = (name.trim())
@@ -89,7 +91,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   if (!isOpen) return null;
 
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    resetPresetIfModified();
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setImageFile(file);
@@ -99,7 +100,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   };
 
   const toggleTag = (tagName: string) => {
-    resetPresetIfModified();
     if (selectedTags.includes(tagName)) {
       setSelectedTags(selectedTags.filter((t) => t !== tagName));
     } else {
@@ -108,9 +108,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   };
 
   const handleSelectPresetCall = (presetId: string) => {
-    setSelectedPresetId(presetId);
     setSaveAsPreset(false);
-
     const target = presets.find((p) => p.id === presetId);
     if (target) {
       setName(target.name);
@@ -151,7 +149,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         setImagePreview(null);
         setSelectedTags([]);
         setSaveAsPreset(false);
-        setSelectedPresetId('');
         onClose();
       }
       return;
@@ -181,7 +178,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       image_url: finalImageUrl
     });
 
-    if (result && saveAsPreset && !selectedPresetId) {
+    if (result && saveAsPreset && !matchedPreset) {
       await addPreset({
         jan_code: finalJan,
         name: name.trim(),
@@ -201,7 +198,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       setImagePreview(null);
       setSelectedTags([]);
       setSaveAsPreset(false);
-      setSelectedPresetId('');
       onClose();
     }
   };
@@ -250,10 +246,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             required
             placeholder="例: パック牛乳 1000ml"
             value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              resetPresetIfModified();
-            }}
+            onChange={(e) => setName(e.target.value)}
             className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
           />
         </div>
@@ -291,7 +284,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      resetPresetIfModified();
                       setImageFile(null);
                       setImagePreview(null);
                       setImageUrl('');
@@ -336,10 +328,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           </label>
           <select
             value={location}
-            onChange={(e) => {
-              setLocation(e.target.value);
-              resetPresetIfModified();
-            }}
+            onChange={(e) => setLocation(e.target.value)}
             className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
           >
             {locations.map((loc) => (
@@ -371,10 +360,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             type="text"
             placeholder="4901234567890"
             value={janCode}
-            onChange={(e) => {
-              setJanCode(e.target.value);
-              resetPresetIfModified();
-            }}
+            onChange={(e) => setJanCode(e.target.value)}
             className="w-full px-3.5 py-2 text-xs font-mono rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
           />
         </div>
@@ -392,7 +378,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         </div>
 
         {/* Tag Selector (Dropdown + Checkboxes) */}
-        { !isExistingMatch && (
         <div className="space-y-1 relative" ref={tagDropdownRef}>
           <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
             <TagIcon className="w-3.5 h-3.5 text-amber-500" /> 分類タグ (ドロップダウン選択)
@@ -413,7 +398,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
           </button>
 
-          {isTagDropdownOpen && (
+          {isTagDropdownOpen && !isExistingMatch && (
             <div className="absolute top-full left-0 right-0 mt-1 z-20 p-2 rounded-xl bg-white border border-slate-200 shadow-xl max-h-48 overflow-y-auto space-y-1">
               {tags.map((t) => {
                 const isChecked = selectedTags.includes(t.name);
@@ -434,10 +419,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               })}
             </div>
           )}
-        </div>)}
+        </div>
 
-        {/* Save to Preset Checkbox */}
-        {!selectedPresetId && !isExistingMatch && (
+        {/* Save to Preset Checkbox (Only shown if current product doesn't match an existing preset or existing match) */}
+        {!matchedPreset && !isExistingMatch && (
           <div className="pt-2">
             <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-purple-900 bg-purple-50 p-2.5 rounded-xl border border-purple-200">
               <input
