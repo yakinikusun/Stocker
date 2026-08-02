@@ -28,9 +28,13 @@ export const FormModal: React.FC<FormModalProps> = ({
       : 'max-w-sm';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in cursor-pointer"
+    >
       <div
-        className={`relative w-full ${maxWidthClass} overflow-hidden rounded-2xl clean-modal border border-slate-200 shadow-2xl p-5 space-y-4 max-h-[90vh] flex flex-col`}
+        onClick={(e) => e.stopPropagation()}
+        className={`relative w-full ${maxWidthClass} overflow-hidden rounded-2xl clean-modal border border-slate-200 shadow-2xl p-5 space-y-4 max-h-[90vh] flex flex-col cursor-default`}
       >
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-200 pb-3 shrink-0">

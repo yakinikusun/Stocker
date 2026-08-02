@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Plus, Package, Upload, Image as ImageIcon, BookmarkPlus, Tag as TagIcon, FolderKanban, Loader2, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { Camera, Plus, Package, Upload, Image as ImageIcon, BookmarkPlus, Tag as TagIcon, FolderKanban, Loader2, ChevronDown, Lock, RotateCcw } from 'lucide-react';
 import { useStock } from '../context/StockContext';
 import { uploadProductImage } from '../lib/supabase';
-import { Product } from '../types/stock';
 import { FormModal } from './FormModal';
 
 interface ProductModalProps {
@@ -18,7 +17,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   initialJanCode = '',
   onTriggerScanner
 }) => {
-  const { addProduct, addPreset, adjustStock, getProductsByJanCode, locations, tags, presets } = useStock();
+  const { addProduct, addPreset, adjustStock, getProductsByJanCode, locations, tags, presets, products } = useStock();
 
   const [janCode, setJanCode] = useState('');
   const [name, setName] = useState('');
@@ -30,18 +29,52 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [saveAsPreset, setSaveAsPreset] = useState(false);
-  const [selectedPresetId, setSelectedPresetId] = useState('');
   const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
+  const [showImageControls, setShowImageControls] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const tagDropdownRef = useRef<HTMLDivElement | null>(null);
 
-  // Check matching existing products by BOTH JAN Code AND Product Name
-  const matchingJanProducts = (janCode.trim() && name.trim())
-    ? getProductsByJanCode(janCode.trim()).filter(p => p.name.trim().toLowerCase() === name.trim().toLowerCase())
+  // Reactively check if current input values match an existing Preset (by Name and optional JAN)
+  const matchedPreset = name.trim()
+    ? presets.find(p =>
+        p.name.trim().toLowerCase() === name.trim().toLowerCase() &&
+        (janCode.trim() ? (p.jan_code && p.jan_code.trim() === janCode.trim()) : true)
+      )
+    : null;
+
+  const selectedPresetId = matchedPreset ? matchedPreset.id : '';
+
+  // Check matching existing product by JAN Code (if present) AND Product Name AND Storage Location
+  const matchingJanProducts = (name.trim())
+    ? products.filter(p =>
+        p.name.trim().toLowerCase() === name.trim().toLowerCase() &&
+        p.location === (location || '冷蔵庫') &&
+        (janCode.trim() ? (p.jan_code && p.jan_code.trim() === janCode.trim()) : true)
+      )
     : [];
+
+  const isExistingMatch = matchingJanProducts.length > 0;
+  const matchedProduct = isExistingMatch ? matchingJanProducts[0] : null;
+
+  // Safely derive displayed image preview without unsafe useEffect state mutation loops
+  const displayImagePreview = isExistingMatch ? (matchedProduct?.image_url || null) : imagePreview;
+
+  // Clear all form inputs
+  const handleClearForm = () => {
+    setName('');
+    setJanCode('');
+    setCurrentStock(1);
+    setImageUrl('');
+    setImageFile(null);
+    setImagePreview(null);
+    setSelectedTags([]);
+    setSaveAsPreset(false);
+    setShowImageControls(false);
+    setError(null);
+  };
 
   useEffect(() => {
     if (initialJanCode) {
@@ -81,6 +114,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       setImageFile(file);
       const objectUrl = URL.createObjectURL(file);
       setImagePreview(objectUrl);
+      setShowImageControls(false);
     }
   };
 
@@ -93,8 +127,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   };
 
   const handleSelectPresetCall = (presetId: string) => {
-    setSelectedPresetId(presetId);
     setSaveAsPreset(false);
+    if (!presetId) {
+      handleClearForm();
+      return;
+    }
 
     const target = presets.find((p) => p.id === presetId);
     if (target) {
@@ -104,13 +141,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       if (target.image_url) {
         setImageUrl(target.image_url);
         setImagePreview(target.image_url);
+      } else {
+        setImageUrl('');
+        setImagePreview(null);
       }
     }
-  };
-
-  const handleIncrementMatchingProduct = async (product: Product) => {
-    await adjustStock(product.id, currentStock);
-    onClose();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -119,6 +154,20 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
     if (!name.trim()) {
       setError('商品名を入力してください。');
+      return;
+    }
+
+    // If an existing matching product is detected, directly adjust stock of that existing product!
+    if (isExistingMatch && matchingJanProducts.length > 0) {
+      setIsSubmitting(true);
+      const targetProduct = matchingJanProducts[0];
+      const success = await adjustStock(targetProduct.id, Math.max(1, currentStock));
+      setIsSubmitting(false);
+
+      if (success) {
+        handleClearForm();
+        onClose();
+      }
       return;
     }
 
@@ -146,7 +195,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       image_url: finalImageUrl
     });
 
-    if (result && saveAsPreset && !selectedPresetId) {
+    if (result && saveAsPreset && !matchedPreset) {
       await addPreset({
         jan_code: finalJan,
         name: name.trim(),
@@ -158,15 +207,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     setIsSubmitting(false);
 
     if (result) {
-      setJanCode('');
-      setName('');
-      setCurrentStock(1);
-      setImageUrl('');
-      setImageFile(null);
-      setImagePreview(null);
-      setSelectedTags([]);
-      setSaveAsPreset(false);
-      setSelectedPresetId('');
+      handleClearForm();
       onClose();
     }
   };
@@ -189,9 +230,21 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         {/* Preset Selector Call-out */}
         {presets.length > 0 && (
           <div className="p-3 rounded-xl bg-purple-50 border border-purple-200 space-y-1.5">
-            <label className="text-xs font-bold text-purple-800 flex items-center gap-1.5">
-              <BookmarkPlus className="w-4 h-4 text-purple-600" /> プリセットから呼び出す
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-purple-800 flex items-center gap-1.5">
+                <BookmarkPlus className="w-4 h-4 text-purple-600" /> プリセットから呼び出す
+              </label>
+              {(name || janCode || imagePreview || selectedTags.length > 0) && (
+                <button
+                  type="button"
+                  onClick={handleClearForm}
+                  className="text-[11px] font-semibold text-purple-700 hover:text-purple-900 flex items-center gap-1 hover:underline transition-all"
+                  title="入力内容を全クリア"
+                >
+                  <RotateCcw className="w-3 h-3" /> クリア
+                </button>
+              )}
+            </div>
             <select
               value={selectedPresetId}
               onChange={(e) => handleSelectPresetCall(e.target.value)}
@@ -207,39 +260,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           </div>
         )}
 
-        {/* Duplicate JAN Code Item Selector */}
-        {matchingJanProducts.length > 0 && (
-          <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
-              <CheckCircle2 className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>同じJANコード・商品名の商品が {matchingJanProducts.length} 件見つかりました</span>
-            </div>
-            <p className="text-[11px] text-amber-800">
-              既存の在庫を増やす場合は商品を選択してください：
-            </p>
-            <div className="space-y-1.5 pt-1">
-              {matchingJanProducts.map((prod) => (
-                <div
-                  key={prod.id}
-                  className="p-2.5 rounded-lg bg-white border border-amber-200 flex items-center justify-between gap-2"
-                >
-                  <div className="min-w-0">
-                    <span className="font-bold text-xs text-slate-900 block truncate">{prod.name}</span>
-                    <span className="text-[10px] text-blue-700">場所: {prod.location} | 現在数: {prod.current_stock}個</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleIncrementMatchingProduct(prod)}
-                    className="px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-semibold shrink-0"
-                  >
-                    +{currentStock} 加算
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Product Name */}
         <div className="space-y-1">
           <label className="text-xs font-semibold text-slate-700">商品名 *</label>
@@ -251,64 +271,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             onChange={(e) => setName(e.target.value)}
             className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
           />
-        </div>
-
-        {/* Image Upload Zone */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-            <ImageIcon className="w-3.5 h-3.5 text-blue-600" /> 商品写真・画像アップロード
-          </label>
-          
-          <input
-            type="file"
-            ref={fileInputRef}
-            accept="image/*"
-            onChange={handleImageFileChange}
-            className="hidden"
-          />
-
-          {imagePreview ? (
-            <div className="relative w-full h-36 rounded-xl overflow-hidden border border-slate-300 group">
-              <img
-                src={imagePreview}
-                alt="プレビュー"
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-3 py-1.5 rounded-lg bg-white text-slate-800 text-xs font-semibold shadow-sm"
-                >
-                  変更
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setImageFile(null);
-                    setImagePreview(null);
-                    setImageUrl('');
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold shadow-sm"
-                >
-                  削除
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full h-24 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-blue-50/50 hover:border-blue-400 transition-all flex flex-col items-center justify-center cursor-pointer p-3 text-center"
-            >
-              <Upload className="w-6 h-6 text-slate-400 mb-1" />
-              <span className="text-xs font-semibold text-slate-600">
-                クリックして画像をアップロード
-              </span>
-              <span className="text-[10px] text-slate-400 mt-0.5">
-                JPEG, PNG, WEBP 画像ファイルに対応
-              </span>
-            </div>
-          )}
         </div>
 
         {/* Storage Location Selector */}
@@ -327,6 +289,98 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Image Upload Zone */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+            <span className="flex items-center gap-1">
+              <ImageIcon className="w-3.5 h-3.5 text-blue-600" /> 
+              {isExistingMatch ? '写真・画像プレビュー' : '写真・画像アップロード'}
+            </span>
+            {isExistingMatch && (
+              <span className="text-[10px] text-amber-700 font-semibold flex items-center gap-1 bg-amber-100 px-2 py-0.5 rounded-full">
+                <Lock className="w-3 h-3" /> 登録済み情報 (編集不可)
+              </span>
+            )}
+          </label>
+          
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/*"
+            onChange={handleImageFileChange}
+            className="hidden"
+          />
+          {displayImagePreview ? (
+            <div
+              onClick={() => {
+                if (!isExistingMatch) setShowImageControls(!showImageControls);
+              }}
+              className="relative w-full h-36 rounded-xl overflow-hidden border border-slate-300 group cursor-pointer"
+            >
+              <img
+                src={displayImagePreview}
+                alt="プレビュー"
+                className="w-full h-full object-cover"
+              />
+              {!isExistingMatch && (
+                <div
+                  className={`absolute inset-0 bg-slate-900/50 transition-opacity flex items-center justify-center gap-2 ${
+                    showImageControls
+                      ? 'opacity-100 pointer-events-auto'
+                      : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                    className="px-3.5 py-1.5 rounded-lg bg-white text-slate-800 text-xs font-semibold shadow-md active:scale-95 transition-all"
+                  >
+                    変更
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setImageFile(null);
+                      setImagePreview(null);
+                      setImageUrl('');
+                      setShowImageControls(false);
+                    }}
+                    className="px-3.5 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold shadow-md active:scale-95 transition-all"
+                  >
+                    削除
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="w-full h-24 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center p-3 text-center">
+              {isExistingMatch ? (
+                <div className="flex flex-col items-center justify-center text-slate-400">
+                  <Package className="w-8 h-8 mb-1" />
+                  <span className="text-xs font-medium">画像未登録</span>
+                </div>
+              ) : (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full h-full flex flex-col items-center justify-center cursor-pointer"
+                >
+                  <Upload className="w-6 h-6 text-slate-400 mb-1" />
+                  <span className="text-xs font-semibold text-slate-600">
+                    クリックして画像をアップロード
+                  </span>
+                  <span className="text-[10px] text-slate-400 mt-0.5">
+                    JPEG, PNG, WEBP 画像ファイルに対応
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* JAN Code Field */}
@@ -367,49 +421,75 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           />
         </div>
 
-        {/* Tag Selector (Dropdown + Checkboxes) */}
+        {/* Tag Selector / Display */}
         <div className="space-y-1 relative" ref={tagDropdownRef}>
-          <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-            <TagIcon className="w-3.5 h-3.5 text-amber-500" /> 分類タグ (ドロップダウン選択)
-          </label>
-          <button
-            type="button"
-            onClick={() => setIsTagDropdownOpen(!isTagDropdownOpen)}
-            className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-left flex items-center justify-between"
-          >
-            <span className="truncate">
-              {selectedTags.length === 0
-                ? '未選択 (クリックして選択)'
-                : `${selectedTags.join(', ')} (${selectedTags.length}件選択中)`}
+          <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+            <span className="flex items-center gap-1">
+              <TagIcon className="w-3.5 h-3.5 text-amber-500" /> 分類タグ
             </span>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-          </button>
+            {isExistingMatch && (
+              <span className="text-[10px] text-amber-700 font-semibold flex items-center gap-1 bg-amber-100 px-2 py-0.5 rounded-full">
+                <Lock className="w-3 h-3" /> 登録済み情報 (編集不可)
+              </span>
+            )}
+          </label>
 
-          {isTagDropdownOpen && (
-            <div className="absolute top-full left-0 right-0 mt-1 z-20 p-2 rounded-xl bg-white border border-slate-200 shadow-xl max-h-48 overflow-y-auto space-y-1">
-              {tags.map((t) => {
-                const isChecked = selectedTags.includes(t.name);
-                return (
-                  <label
-                    key={t.id}
-                    className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer text-xs"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => toggleTag(t.name)}
-                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="font-medium text-slate-800">#{t.name}</span>
-                  </label>
-                );
-              })}
+          {isExistingMatch ? (
+            /* Read-Only Display of Attached Tags for Existing Product */
+            <div className="p-2.5 rounded-xl bg-slate-100 border border-slate-200 flex flex-wrap gap-1.5 min-h-[38px] items-center">
+              {matchingJanProducts[0]?.tags && matchingJanProducts[0].tags.length > 0 ? (
+                matchingJanProducts[0].tags.map((t) => (
+                  <span key={t} className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-slate-700 border border-slate-200 shadow-2xs">
+                    #{t}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-slate-400 font-medium">タグ未設定</span>
+              )}
             </div>
+          ) : (
+            /* Editable Tag Selector Dropdown for New Product */
+            <>
+              <button
+                type="button"
+                onClick={() => setIsTagDropdownOpen(!isTagDropdownOpen)}
+                className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-left flex items-center justify-between"
+              >
+                <span className="truncate">
+                  {selectedTags.length === 0
+                    ? '未選択 (クリックして選択)'
+                    : `${selectedTags.join(', ')} (${selectedTags.length}件選択中)`}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              </button>
+
+              {isTagDropdownOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1 z-20 p-2 rounded-xl bg-white border border-slate-200 shadow-xl max-h-48 overflow-y-auto space-y-1">
+                  {tags.map((t) => {
+                    const isChecked = selectedTags.includes(t.name);
+                    return (
+                      <label
+                        key={t.id}
+                        className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer text-xs"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleTag(t.name)}
+                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="font-medium text-slate-800">#{t.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
 
         {/* Save to Preset Checkbox */}
-        {!selectedPresetId && (
+        {!matchedPreset && (
           <div className="pt-2">
             <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-purple-900 bg-purple-50 p-2.5 rounded-xl border border-purple-200">
               <input
@@ -423,7 +503,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           </div>
         )}
 
-        {/* Action Buttons */}
+        {/* Dynamic Action Button */}
         <div className="flex gap-2 pt-3">
           <button
             type="button"
@@ -435,11 +515,19 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           <button
             type="submit"
             disabled={isSubmitting || isUploading}
-            className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all"
+            className={`flex-1 py-2.5 rounded-xl text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all ${
+              isExistingMatch
+                ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-200'
+                : 'bg-blue-600 hover:bg-blue-700'
+            }`}
           >
             {isUploading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" /> 画像送信中...
+              </>
+            ) : isExistingMatch ? (
+              <>
+                <Plus className="w-4 h-4" /> 在庫を追加 (+{currentStock})
               </>
             ) : (
               <>

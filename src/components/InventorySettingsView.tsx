@@ -80,6 +80,8 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
 
   const [isUploading, setIsUploading] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [showAddPresetImageControls, setShowAddPresetImageControls] = useState(false);
+  const [showEditPresetImageControls, setShowEditPresetImageControls] = useState(false);
   const presetFileInputRef = useRef<HTMLInputElement | null>(null);
   const editPresetFileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -609,23 +611,37 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
               className="hidden"
             />
             {editPresetImagePreview ? (
-              <div className="relative w-full h-32 rounded-xl overflow-hidden border border-slate-300 group">
+              <div
+                onClick={() => setShowEditPresetImageControls(!showEditPresetImageControls)}
+                className="relative w-full h-32 rounded-xl overflow-hidden border border-slate-300 group cursor-pointer"
+              >
                 <img src={editPresetImagePreview} alt="プレビュー" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <div
+                  className={`absolute inset-0 bg-slate-900/50 transition-opacity flex items-center justify-center gap-2 ${
+                    showEditPresetImageControls
+                      ? 'opacity-100 pointer-events-auto'
+                      : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto'
+                  }`}
+                >
                   <button
                     type="button"
-                    onClick={() => editPresetFileInputRef.current?.click()}
-                    className="px-3 py-1 text-xs bg-white font-semibold rounded-lg"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      editPresetFileInputRef.current?.click();
+                    }}
+                    className="px-3.5 py-1.5 rounded-lg bg-white text-slate-800 text-xs font-semibold shadow-md active:scale-95 transition-all"
                   >
                     変更
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setEditPresetImageFile(null);
                       setEditPresetImagePreview(null);
+                      setShowEditPresetImageControls(false);
                     }}
-                    className="px-3 py-1 text-xs bg-rose-600 text-white font-semibold rounded-lg"
+                    className="px-3.5 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold shadow-md active:scale-95 transition-all"
                   >
                     削除
                   </button>
@@ -740,8 +756,41 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
               className="hidden"
             />
             {presetImagePreview ? (
-              <div className="relative w-full h-28 rounded-lg overflow-hidden border border-slate-300">
+              <div
+                onClick={() => setShowAddPresetImageControls(!showAddPresetImageControls)}
+                className="relative w-full h-28 rounded-xl overflow-hidden border border-slate-300 group cursor-pointer"
+              >
                 <img src={presetImagePreview} alt="プレビュー" className="w-full h-full object-cover" />
+                <div
+                  className={`absolute inset-0 bg-slate-900/50 transition-opacity flex items-center justify-center gap-2 ${
+                    showAddPresetImageControls
+                      ? 'opacity-100 pointer-events-auto'
+                      : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      presetFileInputRef.current?.click();
+                    }}
+                    className="px-3.5 py-1.5 rounded-lg bg-white text-slate-800 text-xs font-semibold shadow-md active:scale-95 transition-all"
+                  >
+                    変更
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPresetImageFile(null);
+                      setPresetImagePreview(null);
+                      setShowAddPresetImageControls(false);
+                    }}
+                    className="px-3.5 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold shadow-md active:scale-95 transition-all"
+                  >
+                    削除
+                  </button>
+                </div>
               </div>
             ) : (
               <div
