@@ -18,7 +18,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   initialJanCode = '',
   onTriggerScanner
 }) => {
-  const { addProduct, addPreset, adjustStock, getProductsByJanCode, locations, tags, presets } = useStock();
+  const { addProduct, addPreset, adjustStock, getProductsByJanCode, locations, tags, presets, products } = useStock();
 
   const [janCode, setJanCode] = useState('');
   const [name, setName] = useState('');
@@ -38,10 +38,16 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const tagDropdownRef = useRef<HTMLDivElement | null>(null);
 
-  // Check matching existing products by BOTH JAN Code AND Product Name
-  const matchingJanProducts = (janCode.trim() && name.trim())
-    ? getProductsByJanCode(janCode.trim()).filter(p => p.name.trim().toLowerCase() === name.trim().toLowerCase())
+  // Check matching existing products by JAN Code (if present) AND Product Name AND Storage Location
+  const matchingJanProducts = (name.trim())
+    ? products.filter(p =>
+        p.name.trim().toLowerCase() === name.trim().toLowerCase() &&
+        p.location === (location || '冷蔵庫') &&
+        (janCode.trim() ? (p.jan_code && p.jan_code.trim() === janCode.trim()) : true)
+      )
     : [];
+
+  const isExistingMatch = matchingJanProducts.length > 0;
 
   useEffect(() => {
     if (initialJanCode) {
@@ -119,6 +125,28 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
     if (!name.trim()) {
       setError('商品名を入力してください。');
+      return;
+    }
+
+    // If an existing matching product is detected, directly adjust stock of that existing product!
+    if (isExistingMatch && matchingJanProducts.length > 0) {
+      setIsSubmitting(true);
+      const targetProduct = matchingJanProducts[0];
+      const success = await adjustStock(targetProduct.id, Math.max(1, currentStock));
+      setIsSubmitting(false);
+
+      if (success) {
+        setJanCode('');
+        setName('');
+        setCurrentStock(1);
+        setImageUrl('');
+        setImageFile(null);
+        setImagePreview(null);
+        setSelectedTags([]);
+        setSaveAsPreset(false);
+        setSelectedPresetId('');
+        onClose();
+      }
       return;
     }
 
@@ -207,36 +235,16 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           </div>
         )}
 
-        {/* Duplicate JAN Code Item Selector */}
-        {matchingJanProducts.length > 0 && (
+        {/* Dynamic Alert Banner when Product Already Exists */}
+        {isExistingMatch && (
           <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 space-y-2">
             <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
               <CheckCircle2 className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>同じJANコード・商品名の商品が {matchingJanProducts.length} 件見つかりました</span>
+              <span>同名・同JANの既存在庫が {matchingJanProducts.length} 件見つかりました</span>
             </div>
             <p className="text-[11px] text-amber-800">
-              既存の在庫を増やす場合は商品を選択してください：
+              「在庫を追加」ボタンをクリックすると既存商品に {currentStock} 個加算されます。
             </p>
-            <div className="space-y-1.5 pt-1">
-              {matchingJanProducts.map((prod) => (
-                <div
-                  key={prod.id}
-                  className="p-2.5 rounded-lg bg-white border border-amber-200 flex items-center justify-between gap-2"
-                >
-                  <div className="min-w-0">
-                    <span className="font-bold text-xs text-slate-900 block truncate">{prod.name}</span>
-                    <span className="text-[10px] text-blue-700">場所: {prod.location} | 現在数: {prod.current_stock}個</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleIncrementMatchingProduct(prod)}
-                    className="px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-semibold shrink-0"
-                  >
-                    +{currentStock} 加算
-                  </button>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 
@@ -423,7 +431,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           </div>
         )}
 
-        {/* Action Buttons */}
+        {/* Dynamic Action Button: Changes label & style when existing match is detected */}
         <div className="flex gap-2 pt-3">
           <button
             type="button"
@@ -435,11 +443,19 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           <button
             type="submit"
             disabled={isSubmitting || isUploading}
-            className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all"
+            className={`flex-1 py-2.5 rounded-xl text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all ${
+              isExistingMatch
+                ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-200'
+                : 'bg-blue-600 hover:bg-blue-700'
+            }`}
           >
             {isUploading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" /> 画像送信中...
+              </>
+            ) : isExistingMatch ? (
+              <>
+                <Plus className="w-4 h-4" /> 在庫を追加 (+{currentStock})
               </>
             ) : (
               <>
