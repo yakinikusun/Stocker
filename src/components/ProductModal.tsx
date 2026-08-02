@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Plus, Package, Upload, Image as ImageIcon, BookmarkPlus, Tag as TagIcon, FolderKanban, Loader2, ChevronDown, CheckCircle2, Lock } from 'lucide-react';
+import { Camera, Plus, Package, Upload, Image as ImageIcon, BookmarkPlus, Tag as TagIcon, FolderKanban, Loader2, ChevronDown, CheckCircle2, Lock, RotateCcw } from 'lucide-react';
 import { useStock } from '../context/StockContext';
 import { uploadProductImage } from '../lib/supabase';
 import { Product } from '../types/stock';
@@ -58,6 +58,19 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
   const isExistingMatch = matchingJanProducts.length > 0;
   const matchedProduct = isExistingMatch ? matchingJanProducts[0] : null;
+
+  // Clear all form inputs
+  const handleClearForm = () => {
+    setName('');
+    setJanCode('');
+    setCurrentStock(1);
+    setImageUrl('');
+    setImageFile(null);
+    setImagePreview(null);
+    setSelectedTags([]);
+    setSaveAsPreset(false);
+    setError(null);
+  };
 
   // Sync image preview and tags cleanly when an existing product match is detected
   useEffect(() => {
@@ -126,6 +139,12 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
   const handleSelectPresetCall = (presetId: string) => {
     setSaveAsPreset(false);
+    if (!presetId) {
+      // Clear form when selecting default "-- 登録済みプリセットを選択 --" option
+      handleClearForm();
+      return;
+    }
+
     const target = presets.find((p) => p.id === presetId);
     if (target) {
       setName(target.name);
@@ -158,14 +177,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       setIsSubmitting(false);
 
       if (success) {
-        setJanCode('');
-        setName('');
-        setCurrentStock(1);
-        setImageUrl('');
-        setImageFile(null);
-        setImagePreview(null);
-        setSelectedTags([]);
-        setSaveAsPreset(false);
+        handleClearForm();
         onClose();
       }
       return;
@@ -207,14 +219,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     setIsSubmitting(false);
 
     if (result) {
-      setJanCode('');
-      setName('');
-      setCurrentStock(1);
-      setImageUrl('');
-      setImageFile(null);
-      setImagePreview(null);
-      setSelectedTags([]);
-      setSaveAsPreset(false);
+      handleClearForm();
       onClose();
     }
   };
@@ -237,9 +242,21 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         {/* Preset Selector Call-out */}
         {presets.length > 0 && (
           <div className="p-3 rounded-xl bg-purple-50 border border-purple-200 space-y-1.5">
-            <label className="text-xs font-bold text-purple-800 flex items-center gap-1.5">
-              <BookmarkPlus className="w-4 h-4 text-purple-600" /> プリセットから呼び出す
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-purple-800 flex items-center gap-1.5">
+                <BookmarkPlus className="w-4 h-4 text-purple-600" /> プリセットから呼び出す
+              </label>
+              {(name || janCode || imagePreview || selectedTags.length > 0) && (
+                <button
+                  type="button"
+                  onClick={handleClearForm}
+                  className="text-[11px] font-semibold text-purple-700 hover:text-purple-900 flex items-center gap-1 hover:underline transition-all"
+                  title="入力内容を全クリア"
+                >
+                  <RotateCcw className="w-3 h-3" /> クリア
+                </button>
+              )}
+            </div>
             <select
               value={selectedPresetId}
               onChange={(e) => handleSelectPresetCall(e.target.value)}
@@ -416,8 +433,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           {isExistingMatch ? (
             /* Read-Only Display of Attached Tags for Existing Product */
             <div className="p-2.5 rounded-xl bg-slate-100 border border-slate-200 flex flex-wrap gap-1.5 min-h-[38px] items-center">
-              {matchedProduct?.tags && matchedProduct.tags.length > 0 ? (
-                matchedProduct.tags.map((t) => (
+              {matchingJanProducts[0]?.tags && matchingJanProducts[0].tags.length > 0 ? (
+                matchingJanProducts[0].tags.map((t) => (
                   <span key={t} className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-slate-700 border border-slate-200 shadow-2xs">
                     #{t}
                   </span>
