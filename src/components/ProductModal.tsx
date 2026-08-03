@@ -85,9 +85,16 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         setLocation(matches[0].location);
         setSelectedTags(matches[0].tags);
         if (matches[0].image_url) setImagePreview(matches[0].image_url);
+      } else {
+        const matchedPreset = presets.find(p => p.jan_code && p.jan_code.trim() === initialJanCode.trim());
+        if (matchedPreset) {
+          setName(matchedPreset.name);
+          if (matchedPreset.tags) setSelectedTags(matchedPreset.tags);
+          if (matchedPreset.image_url) setImagePreview(matchedPreset.image_url);
+        }
       }
     }
-  }, [initialJanCode]);
+  }, [initialJanCode, presets]);
 
   useEffect(() => {
     if (locations.length > 0 && !location) {

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Plus, Package, LayoutGrid, List, RotateCcw, FolderKanban, Tag as TagIcon, Sparkles, Trash2, X, ChevronDown, Check } from 'lucide-react';
+import { Search, Plus, Package, LayoutGrid, List, RotateCcw, FolderKanban, Tag as TagIcon, Sparkles, Trash2, X, ChevronDown, Check, Camera } from 'lucide-react';
 import { useStock } from '../context/StockContext';
 import { useAuth } from '../context/AuthContext';
 import { Product } from '../types/stock';
@@ -13,7 +13,7 @@ interface StockListProps {
   onOpenScanner: () => void;
 }
 
-export const StockList: React.FC<StockListProps> = ({ onOpenAddModal }) => {
+export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScanner }) => {
   const {
     filteredProducts,
     searchTerm,
@@ -228,16 +228,16 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal }) => {
             </button>
           </div>
 
-          {/* Auto 0-Stock Cleanup Trigger */}
-          {zeroStockCount > 0 && (
-            <button
-              onClick={handleRunCleanup}
-              className="px-3 py-2 text-xs font-medium rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1 transition-colors"
-              title="24時間以上在庫が0のアイテムを自動整理"
-            >
-              <Trash2 className="w-3.5 h-3.5 text-rose-600" /> 0在庫消去 ({zeroStockCount})
-            </button>
-          )}
+          {/* Barcode Scan Button */}
+          <button
+            type="button"
+            onClick={onOpenScanner}
+            className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-white flex items-center gap-1.5 shadow-sm transition-all"
+            title="バーコードスキャナを起動"
+          >
+            <Camera className="w-4 h-4 text-blue-400" />
+            <span>スキャン</span>
+          </button>
 
           {/* Add Product Button */}
           <button
