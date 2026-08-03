@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Plus, Package, Upload, Image as ImageIcon, BookmarkPlus, Tag as TagIcon, FolderKanban, Loader2, ChevronDown, Lock, RotateCcw } from 'lucide-react';
+import { Camera, Plus, Package, Upload, Image as ImageIcon, BookmarkPlus, Tag as TagIcon, FolderKanban, Loader2, ChevronDown, Lock, RotateCcw, Sparkles } from 'lucide-react';
 import { useStock } from '../context/StockContext';
 import { uploadProductImage } from '../lib/supabase';
+import { fetchProductByJanCode } from '../lib/barcodeLookup';
 import { FormModal } from './FormModal';
+import { InitialProductData } from '../types/stock';
 
 interface ProductModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialJanCode?: string;
+  initialData?: InitialProductData;
   onTriggerScanner?: () => void;
 }
 
@@ -15,6 +18,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   isOpen,
   onClose,
   initialJanCode = '',
+  initialData,
   onTriggerScanner
 }) => {
   const { addProduct, addPreset, adjustStock, getProductsByJanCode, locations, tags, presets, products } = useStock();
@@ -62,6 +66,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   // Safely derive displayed image preview without unsafe useEffect state mutation loops
   const displayImagePreview = isExistingMatch ? (matchedProduct?.image_url || null) : imagePreview;
 
+  const [isFetchingJan, setIsFetchingJan] = useState(false);
+  const [janFetchedSource, setJanFetchedSource] = useState<string | null>(null);
+
+  const lastFetchedJanRef = useRef<string>('');
+
   // Clear all form inputs
   const handleClearForm = () => {
     setName('');
@@ -73,21 +82,112 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     setSelectedTags([]);
     setSaveAsPreset(false);
     setShowImageControls(false);
+    setJanFetchedSource(null);
+    setIsFetchingJan(false);
+    lastFetchedJanRef.current = '';
     setError(null);
   };
 
   useEffect(() => {
+    if (!isOpen) {
+      handleClearForm();
+    } else if (!initialJanCode) {
+      handleClearForm();
+    }
+  }, [isOpen, initialJanCode]);
+
+  useEffect(() => {
     if (initialJanCode) {
       setJanCode(initialJanCode);
-      const matches = getProductsByJanCode(initialJanCode);
-      if (matches.length > 0) {
-        setName(matches[0].name);
-        setLocation(matches[0].location);
-        setSelectedTags(matches[0].tags);
-        if (matches[0].image_url) setImagePreview(matches[0].image_url);
+      if (initialData) {
+        if (initialData.name !== undefined) setName(initialData.name);
+        if (initialData.location !== undefined) setLocation(initialData.location);
+        if (initialData.tags !== undefined) setSelectedTags(initialData.tags);
+        if (initialData.imageUrl !== undefined) {
+          setImagePreview(initialData.imageUrl);
+          setImageUrl(initialData.imageUrl);
+        }
+      } else {
+        const matches = getProductsByJanCode(initialJanCode);
+        if (matches.length > 0) {
+          setName(matches[0].name);
+          setLocation(matches[0].location);
+          setSelectedTags(matches[0].tags);
+          if (matches[0].image_url) setImagePreview(matches[0].image_url);
+        } else {
+          const matchedPreset = presets.find(p => p.jan_code && p.jan_code.trim() === initialJanCode.trim());
+          if (matchedPreset) {
+            setName(matchedPreset.name);
+            if (matchedPreset.tags) setSelectedTags(matchedPreset.tags);
+            if (matchedPreset.image_url) setImagePreview(matchedPreset.image_url);
+          }
+        }
       }
     }
-  }, [initialJanCode]);
+  }, [initialJanCode, initialData, presets]);
+
+  // Open Food Facts Barcode Lookup with Synchronous Ref Guard
+  useEffect(() => {
+    let isMounted = true;
+    const cleanJan = janCode.trim();
+
+    if (!cleanJan || cleanJan.length < 8) {
+      setJanFetchedSource(null);
+      setIsFetchingJan(false);
+      return;
+    }
+
+    // Synchronous Guard: Skip if we already started or completed lookup for this exact JAN code
+    if (lastFetchedJanRef.current === cleanJan) {
+      return;
+    }
+
+    // Skip external fetch if local product or preset exists
+    const matches = getProductsByJanCode(cleanJan);
+    if (matches.length > 0) {
+      setJanFetchedSource(null);
+      setIsFetchingJan(false);
+      return;
+    }
+
+    const matchedPreset = presets.find(p => p.jan_code && p.jan_code.trim() === cleanJan);
+    if (matchedPreset) {
+      setJanFetchedSource(null);
+      setIsFetchingJan(false);
+      return;
+    }
+
+    // Set Ref IMMEDIATELY synchronously to prevent re-triggering during re-renders!
+    lastFetchedJanRef.current = cleanJan;
+
+    const timer = setTimeout(() => {
+      if (!isMounted) return;
+      setIsFetchingJan(true);
+
+      fetchProductByJanCode(cleanJan)
+        .then((info) => {
+          if (!isMounted) return;
+          setIsFetchingJan(false);
+
+          if (info) {
+            if (info.name) setName((prev) => (prev ? prev : info.name));
+            if (info.imageUrl) {
+              setImagePreview((prev) => (prev ? prev : info.imageUrl));
+              setImageUrl((prev) => (prev ? prev : info.imageUrl || ''));
+            }
+            setJanFetchedSource(info.source);
+          }
+        })
+        .catch(() => {
+          if (isMounted) setIsFetchingJan(false);
+        });
+    }, 400);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [janCode]);
 
   useEffect(() => {
     if (locations.length > 0 && !location) {
@@ -407,6 +507,16 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             onChange={(e) => setJanCode(e.target.value)}
             className="w-full px-3.5 py-2 text-xs font-mono rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
           />
+          {isFetchingJan && (
+            <p className="text-[11px] text-blue-600 flex items-center gap-1 pt-0.5 animate-pulse font-medium">
+              <Loader2 className="w-3 h-3 animate-spin" /> Open Food Facts で商品情報を検索中...
+            </p>
+          )}
+          {janFetchedSource && !isFetchingJan && (
+            <p className="text-[11px] text-emerald-700 flex items-center gap-1 pt-0.5 font-semibold">
+              <Sparkles className="w-3 h-3 text-emerald-500" /> {janFetchedSource} より商品名・画像を自動読み込みしました
+            </p>
+          )}
         </div>
 
         {/* Initial Stock Count */}

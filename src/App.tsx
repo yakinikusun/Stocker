@@ -10,18 +10,20 @@ import { AccountSettingsView } from './components/AccountSettingsView';
 import { BarcodeScanner } from './components/BarcodeScanner';
 import { ProductModal } from './components/ProductModal';
 import { Refrigerator } from 'lucide-react';
-import { Preset } from './types/stock';
+import { Preset, InitialProductData } from './types/stock';
 
 const AppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<MainNavTab>('main');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [prefilledJan, setPrefilledJan] = useState('');
+  const [prefilledData, setPrefilledData] = useState<InitialProductData | undefined>(undefined);
 
   const { createProductFromPreset } = useStock();
 
-  const handleOpenAddModalWithJan = (janCode: string) => {
+  const handleOpenAddModalWithJan = (janCode: string, initialData?: InitialProductData) => {
     setPrefilledJan(janCode);
+    setPrefilledData(initialData);
     setIsAddModalOpen(true);
   };
 
@@ -90,8 +92,10 @@ const AppContent: React.FC = () => {
         onClose={() => {
           setIsAddModalOpen(false);
           setPrefilledJan('');
+          setPrefilledData(undefined);
         }}
         initialJanCode={prefilledJan}
+        initialData={prefilledData}
         onTriggerScanner={() => setIsScannerOpen(true)}
       />
     </div>
