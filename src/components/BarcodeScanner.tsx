@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, X, Check, Package, AlertCircle, Plus, Search, Play, Square, ArrowRight, FolderKanban, Sparkles, Loader2, BookmarkPlus } from 'lucide-react';
+import { Camera, X, Package, AlertCircle, Plus, Search, Play, Square, FolderKanban, Sparkles, Loader2 } from 'lucide-react';
 import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
 import { useStock } from '../context/StockContext';
-import { Product, Preset } from '../types/stock';
+import { Product, InitialProductData } from '../types/stock';
 import { fetchProductByJanCode, ExternalProductInfo } from '../lib/barcodeLookup';
 
 interface BarcodeScannerProps {
   isOpen: boolean;
   onClose: () => void;
   onScanResult?: (janCode: string) => void;
-  onOpenAddModalWithJan?: (janCode: string) => void;
+  onOpenAddModalWithJan?: (janCode: string, initialData?: InitialProductData) => void;
 }
 
 export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
@@ -18,7 +18,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   onScanResult,
   onOpenAddModalWithJan
 }) => {
-  const { getProductsByJanCode, presets } = useStock();
+  const { getProductsByJanCode } = useStock();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
@@ -27,7 +27,6 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scannedJan, setScannedJan] = useState<string | null>(null);
   const [matchedProducts, setMatchedProducts] = useState<Product[]>([]);
-  const [matchedPresets, setMatchedPresets] = useState<Preset[]>([]);
   const [externalProduct, setExternalProduct] = useState<ExternalProductInfo | null>(null);
   const [isFetchingExternal, setIsFetchingExternal] = useState(false);
   const [manualJanInput, setManualJanInput] = useState('');
@@ -37,7 +36,6 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     stopCamera();
     setScannedJan(null);
     setMatchedProducts([]);
-    setMatchedPresets([]);
     setExternalProduct(null);
     setIsFetchingExternal(false);
     setManualJanInput('');
@@ -109,7 +107,6 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     const cleanJan = janCode.trim();
     if (!cleanJan) return;
 
-    // Guard: Prevent rapid 60fps repeated calls from ZXing camera stream!
     if (isProcessingScanRef.current || scannedJan === cleanJan) {
       return;
     }
@@ -117,17 +114,17 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     isProcessingScanRef.current = true;
     setScannedJan(cleanJan);
     setExternalProduct(null);
+
     const matches = getProductsByJanCode(cleanJan);
     setMatchedProducts(matches);
-    
-    // Stop camera stream & ZXing decoder immediately upon first successful scan
+
     stopCamera();
 
     if (onScanResult) {
       onScanResult(cleanJan);
     }
 
-    if (matches.length === 0 && cleanJan.length >= 8) {
+    if (cleanJan.length >= 8) {
       setIsFetchingExternal(true);
       try {
         const extInfo = await fetchProductByJanCode(cleanJan);
@@ -148,11 +145,11 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     setManualJanInput('');
   };
 
-  const handleSelectAndProceed = () => {
+  const handleSelectCandidate = (candidateData?: InitialProductData) => {
     if (scannedJan && onOpenAddModalWithJan) {
       stopCamera();
       onClose();
-      onOpenAddModalWithJan(scannedJan);
+      onOpenAddModalWithJan(scannedJan, candidateData);
     }
   };
 
@@ -329,7 +326,12 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                     </div>
                     <button
                       type="button"
-                      onClick={handleSelectAndProceed}
+                      onClick={() => handleSelectCandidate({
+                        name: prod.name,
+                        location: prod.location,
+                        tags: prod.tags,
+                        imageUrl: prod.image_url || undefined
+                      })}
                       className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold shadow-sm transition-all shrink-0"
                     >
                       選択
@@ -337,45 +339,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                   </div>
                 ))}
 
-                {/* 2. Preset Matches */}
-                {matchedPresets.map((pr) => (
-                  <div
-                    key={pr.id}
-                    className="p-3 rounded-xl bg-white border border-blue-200 flex items-center justify-between gap-3 shadow-2xs"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      {pr.image_url ? (
-                        <img
-                          src={pr.image_url}
-                          alt={pr.name}
-                          className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 shrink-0">
-                          <BookmarkPlus className="w-5 h-5" />
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-100 text-blue-800 shrink-0">
-                            プリセット
-                          </span>
-                          <h4 className="font-semibold text-xs text-slate-900 truncate">{pr.name}</h4>
-                        </div>
-                        <span className="text-[11px] text-slate-500 block mt-0.5">登録済みテンプレート情報</span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleSelectAndProceed}
-                      className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition-all shrink-0"
-                    >
-                      選択
-                    </button>
-                  </div>
-                ))}
-
-                {/* 3. Open Food Facts Candidate */}
+                {/* 2. Open Food Facts Candidate */}
                 {externalProduct && (
                   <div className="p-3 rounded-xl bg-white border border-emerald-300 flex items-center justify-between gap-3 shadow-2xs">
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -404,7 +368,10 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                     </div>
                     <button
                       type="button"
-                      onClick={handleSelectAndProceed}
+                      onClick={() => handleSelectCandidate({
+                        name: externalProduct.name,
+                        imageUrl: externalProduct.imageUrl || undefined
+                      })}
                       className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-all shrink-0"
                     >
                       選択
@@ -412,7 +379,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                   </div>
                 )}
 
-                {/* 4. New Blank Entry Option */}
+                {/* 3. New Blank Entry Option */}
                 <div className="p-3 rounded-xl bg-white border border-slate-200 flex items-center justify-between gap-3 shadow-2xs">
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 shrink-0">
@@ -425,7 +392,10 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                   </div>
                   <button
                     type="button"
-                    onClick={handleSelectAndProceed}
+                    onClick={() => handleSelectCandidate({
+                      name: '',
+                      location: '冷蔵庫'
+                    })}
                     className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold shadow-sm transition-all shrink-0"
                   >
                     選択

@@ -4,11 +4,13 @@ import { useStock } from '../context/StockContext';
 import { uploadProductImage } from '../lib/supabase';
 import { fetchProductByJanCode } from '../lib/barcodeLookup';
 import { FormModal } from './FormModal';
+import { InitialProductData } from '../types/stock';
 
 interface ProductModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialJanCode?: string;
+  initialData?: InitialProductData;
   onTriggerScanner?: () => void;
 }
 
@@ -16,6 +18,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   isOpen,
   onClose,
   initialJanCode = '',
+  initialData,
   onTriggerScanner
 }) => {
   const { addProduct, addPreset, adjustStock, getProductsByJanCode, locations, tags, presets, products } = useStock();
@@ -96,22 +99,32 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   useEffect(() => {
     if (initialJanCode) {
       setJanCode(initialJanCode);
-      const matches = getProductsByJanCode(initialJanCode);
-      if (matches.length > 0) {
-        setName(matches[0].name);
-        setLocation(matches[0].location);
-        setSelectedTags(matches[0].tags);
-        if (matches[0].image_url) setImagePreview(matches[0].image_url);
+      if (initialData) {
+        if (initialData.name !== undefined) setName(initialData.name);
+        if (initialData.location !== undefined) setLocation(initialData.location);
+        if (initialData.tags !== undefined) setSelectedTags(initialData.tags);
+        if (initialData.imageUrl !== undefined) {
+          setImagePreview(initialData.imageUrl);
+          setImageUrl(initialData.imageUrl);
+        }
       } else {
-        const matchedPreset = presets.find(p => p.jan_code && p.jan_code.trim() === initialJanCode.trim());
-        if (matchedPreset) {
-          setName(matchedPreset.name);
-          if (matchedPreset.tags) setSelectedTags(matchedPreset.tags);
-          if (matchedPreset.image_url) setImagePreview(matchedPreset.image_url);
+        const matches = getProductsByJanCode(initialJanCode);
+        if (matches.length > 0) {
+          setName(matches[0].name);
+          setLocation(matches[0].location);
+          setSelectedTags(matches[0].tags);
+          if (matches[0].image_url) setImagePreview(matches[0].image_url);
+        } else {
+          const matchedPreset = presets.find(p => p.jan_code && p.jan_code.trim() === initialJanCode.trim());
+          if (matchedPreset) {
+            setName(matchedPreset.name);
+            if (matchedPreset.tags) setSelectedTags(matchedPreset.tags);
+            if (matchedPreset.image_url) setImagePreview(matchedPreset.image_url);
+          }
         }
       }
     }
-  }, [initialJanCode, presets]);
+  }, [initialJanCode, initialData, presets]);
 
   // Open Food Facts Barcode Lookup with Synchronous Ref Guard
   useEffect(() => {

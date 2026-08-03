@@ -3,6 +3,13 @@ export interface Location {
   name: string;
 }
 
+export interface InitialProductData {
+  name?: string;
+  location?: string;
+  tags?: string[];
+  imageUrl?: string;
+}
+
 export interface Tag {
   id: string;
   name: string;
