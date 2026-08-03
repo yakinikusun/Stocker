@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, X, Check, Package, AlertCircle, Plus, Search, Play, Square, ArrowRight, FolderKanban } from 'lucide-react';
-import { BrowserMultiFormatReader } from '@zxing/browser';
+import { Camera, X, Check, Package, AlertCircle, Plus, Search, Play, Square, ArrowRight, FolderKanban, Sparkles, Loader2 } from 'lucide-react';
+import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
 import { useStock } from '../context/StockContext';
 import { Product } from '../types/stock';
+import { fetchProductByJanCode, ExternalProductInfo } from '../lib/barcodeLookup';
 
 interface BarcodeScannerProps {
   isOpen: boolean;
@@ -20,36 +21,51 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const { getProductsByJanCode } = useStock();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
+  const controlsRef = useRef<IScannerControls | null>(null);
 
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scannedJan, setScannedJan] = useState<string | null>(null);
   const [matchedProducts, setMatchedProducts] = useState<Product[]>([]);
+  const [externalProduct, setExternalProduct] = useState<ExternalProductInfo | null>(null);
+  const [isFetchingExternal, setIsFetchingExternal] = useState(false);
   const [manualJanInput, setManualJanInput] = useState('');
+  const isProcessingScanRef = useRef(false);
+
+  const resetScannerState = () => {
+    stopCamera();
+    setScannedJan(null);
+    setMatchedProducts([]);
+    setExternalProduct(null);
+    setIsFetchingExternal(false);
+    setManualJanInput('');
+    setCameraError(null);
+    isProcessingScanRef.current = false;
+  };
 
   useEffect(() => {
     if (isOpen) {
+      resetScannerState();
       codeReaderRef.current = new BrowserMultiFormatReader();
       startCamera();
     } else {
-      stopCamera();
-      setScannedJan(null);
-      setMatchedProducts([]);
-      setCameraError(null);
+      resetScannerState();
     }
 
     return () => {
-      stopCamera();
+      resetScannerState();
     };
   }, [isOpen]);
 
   const startCamera = async () => {
+    stopCamera();
     setCameraError(null);
     setIsScanning(true);
+    isProcessingScanRef.current = false;
 
     try {
       if (videoRef.current && codeReaderRef.current) {
-        await codeReaderRef.current.decodeFromVideoDevice(
+        const controls = await codeReaderRef.current.decodeFromVideoDevice(
           undefined,
           videoRef.current,
           (result) => {
@@ -59,6 +75,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
             }
           }
         );
+        controlsRef.current = controls;
       }
     } catch (err: any) {
       setCameraError('カメラの起動に失敗しました（権限またはHTTPS接続をご確認ください）。');
@@ -67,22 +84,58 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   };
 
   const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach((track) => track.stop());
-      videoRef.current.srcObject = null;
+    if (controlsRef.current) {
+      try {
+        controlsRef.current.stop();
+      } catch (e) {}
+      controlsRef.current = null;
+    }
+    if (videoRef.current) {
+      try {
+        videoRef.current.pause();
+      } catch (e) {}
+      if (videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach((track) => track.stop());
+        videoRef.current.srcObject = null;
+      }
     }
     setIsScanning(false);
   };
 
-  const handleScannedCode = (janCode: string) => {
-    setScannedJan(janCode);
-    const matches = getProductsByJanCode(janCode);
+  const handleScannedCode = async (janCode: string) => {
+    const cleanJan = janCode.trim();
+    if (!cleanJan) return;
+
+    // Guard: Prevent rapid 60fps repeated calls from ZXing camera stream!
+    if (isProcessingScanRef.current || scannedJan === cleanJan) {
+      return;
+    }
+
+    isProcessingScanRef.current = true;
+    setScannedJan(cleanJan);
+    setExternalProduct(null);
+    const matches = getProductsByJanCode(cleanJan);
     setMatchedProducts(matches);
-    stopCamera(); // Pause scanning upon detection so user can comfortably inspect results
+    
+    // Stop camera stream & ZXing decoder immediately upon first successful scan
+    stopCamera();
 
     if (onScanResult) {
-      onScanResult(janCode);
+      onScanResult(cleanJan);
+    }
+
+    if (matches.length === 0 && cleanJan.length >= 8) {
+      setIsFetchingExternal(true);
+      try {
+        const extInfo = await fetchProductByJanCode(cleanJan);
+        setIsFetchingExternal(false);
+        if (extInfo) {
+          setExternalProduct(extInfo);
+        }
+      } catch (err) {
+        setIsFetchingExternal(false);
+      }
     }
   };
 
@@ -101,12 +154,30 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     }
   };
 
+  const mouseDownOnBackdropRef = useRef(false);
+
   if (!isOpen) return null;
+
+  const handleBackdropMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) {
+      mouseDownOnBackdropRef.current = true;
+    } else {
+      mouseDownOnBackdropRef.current = false;
+    }
+  };
+
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget && mouseDownOnBackdropRef.current) {
+      onClose();
+    }
+    mouseDownOnBackdropRef.current = false;
+  };
 
   return (
     <div
-      onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in cursor-pointer"
+      onMouseDown={handleBackdropMouseDown}
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -263,15 +334,56 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                   </button>
                 </div>
               ) : (
-                <div className="space-y-2 pt-1 text-center">
-                  <p className="text-xs text-slate-600">このJANコードの商品情報はまだ登録されていません。</p>
-                  <button
-                    type="button"
-                    onClick={handleSelectAndProceed}
-                    className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm"
-                  >
-                    <Plus className="w-4 h-4" /> このJANコードで新規在庫を追加
-                  </button>
+                <div className="space-y-3 pt-1 text-center">
+                  {isFetchingExternal ? (
+                    <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 text-xs flex items-center justify-center gap-2 animate-pulse">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Open Food Facts で商品情報を検索中...
+                    </div>
+                  ) : externalProduct ? (
+                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 space-y-2 text-left">
+                      <div className="flex items-center gap-2 text-xs font-bold text-emerald-800">
+                        <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>Open Food Facts に商品が見つかりました</span>
+                      </div>
+                      <div className="flex items-center gap-3 bg-white p-2.5 rounded-lg border border-emerald-200">
+                        {externalProduct.imageUrl ? (
+                          <img
+                            src={externalProduct.imageUrl}
+                            alt={externalProduct.name}
+                            className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                            <Package className="w-6 h-6" />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-semibold text-xs text-slate-900 truncate">
+                            {externalProduct.name || '名称未取得'}
+                          </h4>
+                          <span className="text-[10px] text-slate-500 block mt-0.5">JAN: {scannedJan}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSelectAndProceed}
+                        className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                      >
+                        <Plus className="w-4 h-4" /> この商品名と画像で新規在庫を追加
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-xs text-slate-600">このJANコードの商品情報はまだ登録されていません。</p>
+                      <button
+                        type="button"
+                        onClick={handleSelectAndProceed}
+                        className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                      >
+                        <Plus className="w-4 h-4" /> このJANコードで新規在庫を追加
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { X } from 'lucide-react';
 
 interface FormModalProps {
@@ -18,6 +18,8 @@ export const FormModal: React.FC<FormModalProps> = ({
   children,
   maxWidth = 'sm'
 }) => {
+  const mouseDownOnBackdropRef = useRef(false);
+
   if (!isOpen) return null;
 
   const maxWidthClass =
@@ -27,10 +29,26 @@ export const FormModal: React.FC<FormModalProps> = ({
       ? 'max-w-md'
       : 'max-w-sm';
 
+  const handleBackdropMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) {
+      mouseDownOnBackdropRef.current = true;
+    } else {
+      mouseDownOnBackdropRef.current = false;
+    }
+  };
+
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget && mouseDownOnBackdropRef.current) {
+      onClose();
+    }
+    mouseDownOnBackdropRef.current = false;
+  };
+
   return (
     <div
-      onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in cursor-pointer"
+      onMouseDown={handleBackdropMouseDown}
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
     >
       <div
         onClick={(e) => e.stopPropagation()}
