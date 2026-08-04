@@ -223,16 +223,73 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       alert('保管場所の削除は管理者権限が必要です。');
       return false;
     }
+    const targetLoc = locations.find(l => l.id === id);
+    if (!targetLoc) return false;
+
+    // Find all products with positive stock currently in this location
+    const prodsInLoc = products.filter(p => p.location === targetLoc.name);
+    const stockedProds = prodsInLoc.filter(p => p.current_stock > 0);
+
     const client = getSupabaseClient();
     if (client && isSupabaseActive) {
+      // 1. Record stock history clearance logs for stocked products being removed
+      if (stockedProds.length > 0) {
+        const historyRows = stockedProds.map(p => ({
+          product_id: p.id,
+          user_id: user?.id || null,
+          change_amount: -p.current_stock,
+          product_name: p.name,
+          jan_code: p.jan_code || null,
+          location: p.location
+        }));
+        await client.from('stock_history').insert(historyRows);
+      }
+
+      // 2. Delete all products stored in this location
+      const { error: prodError } = await client
+        .from('products')
+        .delete()
+        .eq('location', targetLoc.name);
+      if (prodError) {
+        alert(`該当保管場所の在庫商品削除エラー: ${prodError.message}`);
+        return false;
+      }
+
+      // 3. Delete the location record
       const { error } = await client.from('locations').delete().eq('id', id);
-      if (error) { alert(`削除エラー: ${error.message}`); return false; }
+      if (error) { alert(`保管場所削除エラー: ${error.message}`); return false; }
       await fetchAllData();
       return true;
     } else {
-      const updated = locations.filter(l => l.id !== id);
-      setLocations(updated);
-      saveLocalLocations(updated);
+      // Offline / LocalStorage Mode: Record history logs for stocked products
+      const now = new Date().toISOString();
+      if (stockedProds.length > 0) {
+        const newHistories: StockHistory[] = stockedProds.map(p => ({
+          id: `hist-${Date.now()}-${p.id}`,
+          product_id: p.id,
+          user_id: user?.id || 'usr-guest',
+          change_amount: -p.current_stock,
+          created_at: now,
+          product_name: p.name,
+          jan_code: p.jan_code || '',
+          location: p.location,
+          user_email: user?.email || 'guest@freezer.local',
+          user_name: user?.name || 'ゲスト'
+        }));
+        const updatedHistories = [...newHistories, ...histories];
+        setHistories(updatedHistories);
+        saveLocalHistories(updatedHistories);
+      }
+
+      const updatedLocs = locations.filter(l => l.id !== id);
+      setLocations(updatedLocs);
+      saveLocalLocations(updatedLocs);
+
+      // Cascade delete all products in this location
+      const remainingProducts = products.filter(p => p.location !== targetLoc.name);
+      setProducts(remainingProducts);
+      saveLocalProducts(remainingProducts);
+
       return true;
     }
   };

@@ -347,7 +347,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                   {user?.role === 'admin' && (
                     <button
                       onClick={() => {
-                        if (confirm(`保管場所「${loc.name}」を削除しますか？`)) {
+                        if (confirm(`保管場所「${loc.name}」および、そこに登録されているすべての在庫商品を連動削除しますか？`)) {
                           deleteLocation(loc.id);
                         }
                       }}
