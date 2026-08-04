@@ -190,20 +190,15 @@ export const HistoryLog: React.FC = () => {
 
                       {/* User Info */}
                       <td className="p-3.5 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-[10px]">
-                            {(h.user_name || h.user_email || 'U')[0].toUpperCase()}
-                          </div>
-                          <div>
-                            <span className="font-medium text-slate-800 block text-xs">
-                              {h.user_name || 'ゲストユーザー'}
+                        <div>
+                          <span className="font-medium text-slate-800 block text-xs">
+                            {h.user_name || 'ゲストユーザー'}
+                          </span>
+                          {h.user_email && (
+                            <span className="text-[10px] text-slate-400 font-mono block">
+                              {h.user_email}
                             </span>
-                            {h.user_email && (
-                              <span className="text-[10px] text-slate-400 font-mono block">
-                                {h.user_email}
-                              </span>
-                            )}
-                          </div>
+                          )}
                         </div>
                       </td>
                     </tr>

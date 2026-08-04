@@ -30,8 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             id: session.user.id,
             email: session.user.email || 'user@example.com',
             name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'ユーザー',
-            role: session.user.user_metadata?.role || 'member',
-            avatar_url: session.user.user_metadata?.avatar_url
+            role: session.user.user_metadata?.role || 'member'
           });
         }
       });
@@ -42,8 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             id: session.user.id,
             email: session.user.email || 'user@example.com',
             name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'ユーザー',
-            role: session.user.user_metadata?.role || 'member',
-            avatar_url: session.user.user_metadata?.avatar_url
+            role: session.user.user_metadata?.role || 'member'
           });
         }
       });

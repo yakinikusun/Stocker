@@ -56,19 +56,10 @@ export const AccountSettingsView: React.FC = () => {
           </span>
         </div>
 
-        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-4">
-          {user?.avatar_url ? (
-            <img src={user.avatar_url} alt={user.name} className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm" />
-          ) : (
-            <div className="w-14 h-14 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xl">
-              {user?.name?.[0] || 'U'}
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <h3 className="font-bold text-slate-900 text-sm">{user?.name}</h3>
-            <p className="text-xs text-slate-500 font-mono mt-0.5">{user?.email}</p>
-            <p className="text-[11px] text-slate-400 mt-1">ID: {user?.id}</p>
-          </div>
+        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+          <h3 className="font-bold text-slate-900 text-sm">{user?.name}</h3>
+          <p className="text-xs text-slate-500 font-mono mt-0.5">{user?.email}</p>
+          <p className="text-[11px] text-slate-400 mt-1">ID: {user?.id}</p>
         </div>
 
         {/* Demo Role Switcher for Testing */}
@@ -100,6 +91,7 @@ export const AccountSettingsView: React.FC = () => {
       </div>
 
       {/* Supabase Connection Settings (Restricted to Admin Only) */}
+      {isAdmin &&(
       <div className="clean-card p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -129,17 +121,6 @@ export const AccountSettingsView: React.FC = () => {
         )}
 
         {/* Requirement 7: If not admin, show lock overlay or disabled state */}
-        {!isAdmin ? (
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-            <div className="flex items-center gap-2 text-slate-600 text-xs font-semibold">
-              <Lock className="w-4 h-4 text-amber-500" /> Supabase接続設定の変更は管理者権限が必要です。
-            </div>
-            <div className="text-xs text-slate-500 space-y-1 font-mono">
-              <p>接続URL: {supabaseConfig.url ? `${supabaseConfig.url.slice(0, 20)}...` : '未設定'}</p>
-              <p>接続状態: {isSupabaseActive ? '有効 (同期中)' : 'デモモード'}</p>
-            </div>
-          </div>
-        ) : (
           <form onSubmit={handleSaveConfig} className="space-y-4">
             <div>
               <label className="text-xs font-semibold text-slate-700 block mb-1">
@@ -183,8 +164,7 @@ export const AccountSettingsView: React.FC = () => {
               </button>
             </div>
           </form>
-        )}
-      </div>
+      </div>)}
 
       {/* Reset Local Demo Data */}
       <div className="clean-card p-5 space-y-3">

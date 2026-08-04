@@ -60,7 +60,6 @@ export interface UserProfile {
   email: string;
   name: string;
   role: UserRole;
-  avatar_url?: string;
 }
 
 export interface SupabaseConfig {
