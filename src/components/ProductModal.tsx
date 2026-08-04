@@ -351,7 +351,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               className="w-full px-3 py-1.5 text-xs rounded-lg bg-white border border-purple-200 text-purple-900 focus:outline-none"
             >
               <option value="">-- 登録済みプリセットを選択 --</option>
-              {presets.map((p) => (
+              {[...presets].sort((a, b) => a.name.localeCompare(b.name, 'ja')).map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
