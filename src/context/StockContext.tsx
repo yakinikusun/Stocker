@@ -328,15 +328,24 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Tag Handlers
   const addTag = async (name: string, color?: string): Promise<boolean> => {
-    if (!name.trim()) return false;
+    const cleanName = name.trim();
+    if (!cleanName) return false;
+
+    // Guard against duplicate tag names (case-insensitive)
+    const isDuplicate = tags.some(t => t.name.toLowerCase() === cleanName.toLowerCase());
+    if (isDuplicate) {
+      alert(`タグ「#${cleanName}」は既に登録されています。`);
+      return false;
+    }
+
     const client = getSupabaseClient();
     if (client && isSupabaseActive) {
-      const { error } = await client.from('tags').insert([{ name: name.trim(), color: color || '#3b82f6' }]);
+      const { error } = await client.from('tags').insert([{ name: cleanName, color: color || '#3b82f6' }]);
       if (error) { alert(`タグ追加エラー: ${error.message}`); return false; }
       await fetchAllData();
       return true;
     } else {
-      const newTag: Tag = { id: `tag-${Date.now()}`, name: name.trim(), color: color || '#3b82f6' };
+      const newTag: Tag = { id: `tag-${Date.now()}`, name: cleanName, color: color || '#3b82f6' };
       const updated = [...tags, newTag];
       setTags(updated);
       saveLocalTags(updated);
@@ -345,17 +354,51 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateTag = async (id: string, name: string, color?: string): Promise<boolean> => {
-    if (!name.trim()) return false;
+    const cleanName = name.trim();
+    if (!cleanName) return false;
+
+    const targetTag = tags.find(t => t.id === id);
+    if (!targetTag) return false;
+
+    // Guard against duplicate tag names (case-insensitive)
+    const isDuplicate = tags.some(t => t.id !== id && t.name.toLowerCase() === cleanName.toLowerCase());
+    if (isDuplicate) {
+      alert(`タグ「#${cleanName}」は既に登録されています。`);
+      return false;
+    }
+
     const client = getSupabaseClient();
     if (client && isSupabaseActive) {
-      const { error } = await client.from('tags').update({ name: name.trim(), color: color || '#3b82f6' }).eq('id', id);
+      const { error } = await client.from('tags').update({ name: cleanName, color: color || targetTag.color || '#3b82f6' }).eq('id', id);
       if (error) { alert(`タグ更新エラー: ${error.message}`); return false; }
+
+      // Cascade update tag name on existing products if name changed
+      if (targetTag.name !== cleanName) {
+        const prodsWithTag = products.filter(p => p.tags && p.tags.includes(targetTag.name));
+        for (const prod of prodsWithTag) {
+          const newTags = prod.tags.map(t => t === targetTag.name ? cleanName : t);
+          await client.from('products').update({ tags: newTags }).eq('id', prod.id);
+        }
+      }
+
       await fetchAllData();
       return true;
     } else {
-      const updated = tags.map(t => t.id === id ? { ...t, name: name.trim(), color: color || t.color } : t);
-      setTags(updated);
-      saveLocalTags(updated);
+      const updatedTags = tags.map(t => t.id === id ? { ...t, name: cleanName, color: color || t.color } : t);
+      setTags(updatedTags);
+      saveLocalTags(updatedTags);
+
+      if (targetTag.name !== cleanName) {
+        const updatedProducts = products.map(p => {
+          if (p.tags && p.tags.includes(targetTag.name)) {
+            return { ...p, tags: p.tags.map(t => t === targetTag.name ? cleanName : t) };
+          }
+          return p;
+        });
+        setProducts(updatedProducts);
+        saveLocalProducts(updatedProducts);
+      }
+
       return true;
     }
   };
@@ -377,12 +420,28 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Preset Handlers
   const addPreset = async (preset: Omit<Preset, 'id' | 'created_at' | 'updated_at'>): Promise<boolean> => {
+    const cleanName = preset.name.trim();
+    const cleanJan = preset.jan_code ? preset.jan_code.trim() : '';
+    if (!cleanName) return false;
+
+    // Guard against duplicate presets (matching BOTH name AND JAN code)
+    const isDuplicate = presets.some(p => {
+      const pName = p.name.trim().toLowerCase();
+      const pJan = p.jan_code ? p.jan_code.trim() : '';
+      return pName === cleanName.toLowerCase() && pJan === cleanJan;
+    });
+
+    if (isDuplicate) {
+      alert(`プリセット「${cleanName}」${cleanJan ? `(JAN: ${cleanJan})` : ''} は既に登録されています。`);
+      return false;
+    }
+
     const client = getSupabaseClient();
     const now = new Date().toISOString();
     if (client && isSupabaseActive) {
       const { error } = await client.from('presets').insert([{
-        jan_code: preset.jan_code,
-        name: preset.name,
+        jan_code: cleanJan || null,
+        name: cleanName,
         image_url: preset.image_url,
         tags: preset.tags
       }]);
@@ -392,6 +451,8 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } else {
       const newPreset: Preset = {
         ...preset,
+        name: cleanName,
+        jan_code: cleanJan || undefined,
         id: `preset-${Date.now()}`,
         created_at: now,
         updated_at: now
@@ -404,18 +465,49 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updatePreset = async (id: string, updatedFields: Partial<Preset>): Promise<boolean> => {
+    const targetPreset = presets.find(p => p.id === id);
+    if (!targetPreset) return false;
+
+    const checkName = updatedFields.name !== undefined ? updatedFields.name.trim() : targetPreset.name.trim();
+    const checkJan = updatedFields.jan_code !== undefined
+      ? (updatedFields.jan_code ? updatedFields.jan_code.trim() : '')
+      : (targetPreset.jan_code ? targetPreset.jan_code.trim() : '');
+
+    if (!checkName) return false;
+
+    // Guard against duplicate presets (matching BOTH name AND JAN code)
+    const isDuplicate = presets.some(p => {
+      if (p.id === id) return false;
+      const pName = p.name.trim().toLowerCase();
+      const pJan = p.jan_code ? p.jan_code.trim() : '';
+      return pName === checkName.toLowerCase() && pJan === checkJan;
+    });
+
+    if (isDuplicate) {
+      alert(`プリセット「${checkName}」${checkJan ? `(JAN: ${checkJan})` : ''} は既に登録されています。`);
+      return false;
+    }
+
     const client = getSupabaseClient();
     const now = new Date().toISOString();
     if (client && isSupabaseActive) {
       const { error } = await client.from('presets').update({
         ...updatedFields,
+        name: checkName,
+        jan_code: checkJan || null,
         updated_at: now
       }).eq('id', id);
       if (error) { alert(`プリセット更新エラー: ${error.message}`); return false; }
       await fetchAllData();
       return true;
     } else {
-      const updated = presets.map(p => p.id === id ? { ...p, ...updatedFields, updated_at: now } : p);
+      const updated = presets.map(p => p.id === id ? {
+        ...p,
+        ...updatedFields,
+        name: checkName,
+        jan_code: checkJan || undefined,
+        updated_at: now
+      } : p);
       setPresets(updated);
       saveLocalPresets(updated);
       return true;
