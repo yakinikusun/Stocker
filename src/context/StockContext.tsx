@@ -186,15 +186,24 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Location Handlers (Admin Only Deletion)
   const addLocation = async (name: string): Promise<boolean> => {
-    if (!name.trim()) return false;
+    const cleanName = name.trim();
+    if (!cleanName) return false;
+
+    // Guard against duplicate location names
+    const isDuplicate = locations.some(l => l.name.toLowerCase() === cleanName.toLowerCase());
+    if (isDuplicate) {
+      alert(`保管場所「${cleanName}」は既に登録されています。`);
+      return false;
+    }
+
     const client = getSupabaseClient();
     if (client && isSupabaseActive) {
-      const { error } = await client.from('locations').insert([{ name: name.trim() }]);
+      const { error } = await client.from('locations').insert([{ name: cleanName }]);
       if (error) { alert(`保管場所追加エラー: ${error.message}`); return false; }
       await fetchAllData();
       return true;
     } else {
-      const newLoc: Location = { id: `loc-${Date.now()}`, name: name.trim() };
+      const newLoc: Location = { id: `loc-${Date.now()}`, name: cleanName };
       const updated = [...locations, newLoc];
       setLocations(updated);
       saveLocalLocations(updated);
@@ -203,17 +212,40 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateLocation = async (id: string, newName: string): Promise<boolean> => {
-    if (!newName.trim()) return false;
+    const cleanName = newName.trim();
+    if (!cleanName) return false;
+
+    const targetLoc = locations.find(l => l.id === id);
+    if (!targetLoc) return false;
+    if (targetLoc.name === cleanName) return true;
+
+    // Guard against duplicate location names
+    const isDuplicate = locations.some(l => l.id !== id && l.name.toLowerCase() === cleanName.toLowerCase());
+    if (isDuplicate) {
+      alert(`保管場所「${cleanName}」は既に登録されています。`);
+      return false;
+    }
+
     const client = getSupabaseClient();
     if (client && isSupabaseActive) {
-      const { error } = await client.from('locations').update({ name: newName.trim() }).eq('id', id);
+      const { error } = await client.from('locations').update({ name: cleanName }).eq('id', id);
       if (error) { alert(`保管場所更新エラー: ${error.message}`); return false; }
+      
+      // Cascade update location name on existing products
+      await client.from('products').update({ location: cleanName }).eq('location', targetLoc.name);
+
       await fetchAllData();
       return true;
     } else {
-      const updated = locations.map(l => l.id === id ? { ...l, name: newName.trim() } : l);
-      setLocations(updated);
-      saveLocalLocations(updated);
+      const updatedLocations = locations.map(l => l.id === id ? { ...l, name: cleanName } : l);
+      setLocations(updatedLocations);
+      saveLocalLocations(updatedLocations);
+
+      // Cascade update products location name locally
+      const updatedProducts = products.map(p => p.location === targetLoc.name ? { ...p, location: cleanName } : p);
+      setProducts(updatedProducts);
+      saveLocalProducts(updatedProducts);
+
       return true;
     }
   };
