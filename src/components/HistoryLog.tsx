@@ -192,11 +192,11 @@ export const HistoryLog: React.FC = () => {
                       <td className="p-3.5 whitespace-nowrap">
                         <div>
                           <span className="font-medium text-slate-800 block text-xs">
-                            {h.user_name || 'ゲストユーザー'}
+                            {h.user_name || h.profiles?.name || 'ゲストユーザー'}
                           </span>
-                          {h.user_email && (
+                          {(h.user_email || h.profiles?.email) && (
                             <span className="text-[10px] text-slate-400 font-mono block">
-                              {h.user_email}
+                              {h.user_email || h.profiles?.email}
                             </span>
                           )}
                         </div>
