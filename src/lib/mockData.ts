@@ -64,15 +64,19 @@ export const INITIAL_PRESETS: Preset[] = [
 export const MOCK_USERS: UserProfile[] = [
   {
     id: 'usr-admin-001',
+    login_id: 'admin',
     email: 'admin@freezer.local',
     name: '管理者 太郎',
-    role: 'admin'
+    role: 'admin',
+    password: 'admin'
   },
   {
     id: 'usr-member-002',
+    login_id: 'staff',
     email: 'staff@freezer.local',
     name: 'スタッフ 花子',
-    role: 'member'
+    role: 'member',
+    password: 'staff'
   }
 ];
 
