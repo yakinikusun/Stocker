@@ -2,6 +2,7 @@
 export const STORAGE_KEYS = {
   SUPABASE_URL: 'freezer_supabase_url',
   SUPABASE_KEY: 'freezer_supabase_key',
+  FORCE_OFFLINE: 'freezer_force_offline',
   PRODUCTS: 'freezer_local_products',
   HISTORIES: 'freezer_local_histories',
   USER: 'freezer_local_user',

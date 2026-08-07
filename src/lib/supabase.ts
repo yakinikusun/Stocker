@@ -11,9 +11,11 @@ import {
 } from './mockData';
 
 export function getStoredSupabaseConfig() {
+  const isForceOffline = localStorage.getItem(STORAGE_KEYS.FORCE_OFFLINE) === 'true';
   const url = localStorage.getItem(STORAGE_KEYS.SUPABASE_URL) || import.meta.env.VITE_SUPABASE_URL || '';
   const anonKey = localStorage.getItem(STORAGE_KEYS.SUPABASE_KEY) || import.meta.env.VITE_SUPABASE_KEY || '';
-  return { url, anonKey, isConfigured: Boolean(url && anonKey) };
+  const isConfigured = !isForceOffline && Boolean(url && anonKey);
+  return { url, anonKey, isConfigured, isForceOffline };
 }
 
 export function saveSupabaseConfig(url: string, anonKey: string) {
@@ -23,6 +25,14 @@ export function saveSupabaseConfig(url: string, anonKey: string) {
   } else {
     localStorage.removeItem(STORAGE_KEYS.SUPABASE_URL);
     localStorage.removeItem(STORAGE_KEYS.SUPABASE_KEY);
+  }
+}
+
+export function setForceOffline(offline: boolean) {
+  if (offline) {
+    localStorage.setItem(STORAGE_KEYS.FORCE_OFFLINE, 'true');
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.FORCE_OFFLINE);
   }
 }
 
@@ -163,16 +173,32 @@ export const loadLocalHistories = (): StockHistory[] =>
 export const saveLocalHistories = (histories: StockHistory[]) =>
   localStorage.setItem(STORAGE_KEYS.HISTORIES, JSON.stringify(histories));
 
-export const loadLocalUser = (): UserProfile => {
+export const loadLocalUser = (): UserProfile | null => {
   const raw = localStorage.getItem(STORAGE_KEYS.USER);
   if (raw) {
-    try { return JSON.parse(raw); } catch { /* ignore */ }
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.id) return parsed;
+    } catch { /* ignore */ }
   }
-  return MOCK_USERS[0];
+  return null;
 };
 
-export const saveLocalUser = (user: UserProfile) =>
-  localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+export const saveLocalUser = (user: UserProfile | null) => {
+  if (user) {
+    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.USER);
+  }
+};
+
+export const loadFamilyAccounts = (): UserProfile[] => {
+  return loadFromStorage('freezer_family_users', MOCK_USERS);
+};
+
+export const saveFamilyAccounts = (users: UserProfile[]) => {
+  localStorage.setItem('freezer_family_users', JSON.stringify(users));
+};
 
 export const resetLocalData = () => {
   localStorage.setItem(STORAGE_KEYS.LOCATIONS, JSON.stringify(INITIAL_LOCATIONS));
@@ -180,5 +206,6 @@ export const resetLocalData = () => {
   localStorage.setItem(STORAGE_KEYS.PRESETS, JSON.stringify(INITIAL_PRESETS));
   localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(INITIAL_PRODUCTS));
   localStorage.setItem(STORAGE_KEYS.HISTORIES, JSON.stringify(INITIAL_HISTORIES));
-  localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(MOCK_USERS[0]));
+  localStorage.setItem('freezer_family_users', JSON.stringify(MOCK_USERS));
+  localStorage.removeItem(STORAGE_KEYS.USER);
 };
