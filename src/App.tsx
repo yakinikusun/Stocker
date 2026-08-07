@@ -12,7 +12,11 @@ import { ProductModal } from './components/ProductModal';
 import { Refrigerator } from 'lucide-react';
 import { Preset, InitialProductData } from './types/stock';
 
+import { useAuth } from './context/AuthContext';
+import { LoginView } from './components/LoginView';
+
 const AppContent: React.FC = () => {
+  const { user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<MainNavTab>('main');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -20,6 +24,10 @@ const AppContent: React.FC = () => {
   const [prefilledData, setPrefilledData] = useState<InitialProductData | undefined>(undefined);
 
   const { createProductFromPreset } = useStock();
+
+  if (!user || !isAuthenticated) {
+    return <LoginView />;
+  }
 
   const handleOpenAddModalWithJan = (janCode: string, initialData?: InitialProductData) => {
     setPrefilledJan(janCode);

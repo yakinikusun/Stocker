@@ -64,17 +64,19 @@ export const INITIAL_PRESETS: Preset[] = [
 export const MOCK_USERS: UserProfile[] = [
   {
     id: 'usr-admin-001',
+    login_id: 'admin',
     email: 'admin@freezer.local',
     name: '管理者 太郎',
     role: 'admin',
-    avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
+    password: 'admin'
   },
   {
     id: 'usr-member-002',
+    login_id: 'staff',
     email: 'staff@freezer.local',
     name: 'スタッフ 花子',
     role: 'member',
-    avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80'
+    password: 'staff'
   }
 ];
 

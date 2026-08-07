@@ -57,10 +57,11 @@ export type UserRole = 'admin' | 'member';
 
 export interface UserProfile {
   id: string;
+  login_id: string;
   email: string;
   name: string;
   role: UserRole;
-  avatar_url?: string;
+  password?: string;
 }
 
 export interface SupabaseConfig {
