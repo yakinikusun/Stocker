@@ -134,6 +134,7 @@ export const LoginView: React.FC = () => {
           </form>
 
           {/* Quick Family Account Selectors */}
+          {import.meta.env.DEV && (
           <div className="pt-4 border-t border-slate-100 space-y-2">
             <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block text-center">
               登録済み家族アカウントでログイン
@@ -163,6 +164,7 @@ export const LoginView: React.FC = () => {
               ))}
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>

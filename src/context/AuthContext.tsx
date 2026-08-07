@@ -20,9 +20,7 @@ interface AuthContextType {
   login: (identifier: string, password?: string) => Promise<boolean>;
   logout: () => Promise<void>;
   switchRole: (role: UserRole) => void;
-  updateProfile: (name: string, loginId: string, password?: string) => Promise<boolean>;
-  createFamilyAccount: (loginId: string, name: string, password: string, role?: UserRole) => Promise<boolean>;
-  resetFamilyMemberPassword: (userId: string, newPassword?: string) => Promise<boolean>;
+  updateProfile: (name: string, password?: string) => Promise<boolean>;
   updateSupabaseConfig: (url: string, anonKey: string) => void;
   toggleSupabaseMode: (active: boolean) => void;
   isSupabaseActive: boolean;
@@ -33,7 +31,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(() => loadLocalUser());
   const [supabaseConfig, setSupabaseConfigState] = useState<SupabaseConfig>(() => getStoredSupabaseConfig());
-  const [familyAccounts, setFamilyAccounts] = useState<UserProfile[]>(() => loadFamilyAccounts());
+  const [familyAccounts] = useState<UserProfile[]>(() => loadFamilyAccounts());
 
   useEffect(() => {
     const client = getSupabaseClient();
@@ -77,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanId = identifier.trim().toLowerCase();
     if (!cleanId) return false;
 
-    // 1. Search in existing family accounts or mock users by login_id or email
+    // Search in existing family accounts or mock users by login_id or email
     const allKnown = [...familyAccounts, ...MOCK_USERS];
     const foundUser = allKnown.find(
       (u) => u.login_id.toLowerCase() === cleanId || u.email.toLowerCase() === cleanId
@@ -139,85 +137,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updated = { ...user, role };
     setUser(updated);
     saveLocalUser(updated);
-
-    // Update in family accounts list
-    const updatedList = familyAccounts.map((u) => (u.id === user.id ? updated : u));
-    setFamilyAccounts(updatedList);
-    saveFamilyAccounts(updatedList);
   };
 
-  const createFamilyAccount = async (
-    loginId: string,
-    name: string,
-    password: string,
-    role: UserRole = 'member'
-  ): Promise<boolean> => {
-    const cleanId = loginId.trim().toLowerCase();
-    const cleanName = name.trim();
-    if (!cleanId || !cleanName || !password) return false;
-
-    // Check duplicate ID
-    if (familyAccounts.some((u) => u.login_id.toLowerCase() === cleanId)) {
-      alert(`ログインID「${cleanId}」は既に登録されています。`);
-      return false;
-    }
-
-    const dummyEmail = `${cleanId}@freezer.local`;
-    const newAccount: UserProfile = {
-      id: `usr-${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      login_id: cleanId,
-      email: dummyEmail,
-      name: cleanName,
-      role,
-      password
-    };
-
-    const client = getSupabaseClient();
-    if (client && supabaseConfig.isConfigured) {
-      const { data, error } = await client.auth.signUp({
-        email: dummyEmail,
-        password: password,
-        options: {
-          data: {
-            name: cleanName,
-            login_id: cleanId,
-            role
-          }
-        }
-      });
-      if (error) {
-        console.warn('Supabase signUp warning:', error.message);
-      } else if (data?.user) {
-        newAccount.id = data.user.id;
-      }
-    }
-
-    const nextAccounts = [...familyAccounts, newAccount];
-    setFamilyAccounts(nextAccounts);
-    saveFamilyAccounts(nextAccounts);
-    return true;
-  };
-
+  // Self-service update of Display Name & Password
   const updateProfile = async (
     newName: string,
-    newLoginId: string,
     newPassword?: string
   ): Promise<boolean> => {
     if (!user) return false;
     const cleanName = newName.trim();
-    const cleanId = newLoginId.trim().toLowerCase();
-    if (!cleanName || !cleanId) return false;
-
-    const dummyEmail = `${cleanId}@freezer.local`;
+    if (!cleanName) return false;
 
     const client = getSupabaseClient();
     if (client && supabaseConfig.isConfigured) {
-      if (newPassword) {
-        await client.auth.updateUser({ password: newPassword });
+      if (newPassword && newPassword.trim()) {
+        const { error: passErr } = await client.auth.updateUser({ password: newPassword.trim() });
+        if (passErr) console.warn('Supabase password update warning:', passErr.message);
       }
       await client.from('profiles').update({
         name: cleanName,
-        email: dummyEmail,
         updated_at: new Date().toISOString()
       }).eq('id', user.id);
     }
@@ -225,29 +163,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updatedUser: UserProfile = {
       ...user,
       name: cleanName,
-      login_id: cleanId,
-      email: dummyEmail,
       password: newPassword || user.password
     };
 
     setUser(updatedUser);
     saveLocalUser(updatedUser);
-
-    const nextAccounts = familyAccounts.map((u) => (u.id === user.id ? updatedUser : u));
-    setFamilyAccounts(nextAccounts);
-    saveFamilyAccounts(nextAccounts);
-    return true;
-  };
-
-  const resetFamilyMemberPassword = async (userId: string, newPassword = '123456'): Promise<boolean> => {
-    const nextAccounts = familyAccounts.map((u) => {
-      if (u.id === userId) {
-        return { ...u, password: newPassword };
-      }
-      return u;
-    });
-    setFamilyAccounts(nextAccounts);
-    saveFamilyAccounts(nextAccounts);
     return true;
   };
 
@@ -272,8 +192,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         switchRole,
         updateProfile,
-        createFamilyAccount,
-        resetFamilyMemberPassword,
         updateSupabaseConfig,
         toggleSupabaseMode,
         isSupabaseActive: supabaseConfig.isConfigured
