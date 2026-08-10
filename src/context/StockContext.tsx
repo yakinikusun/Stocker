@@ -17,6 +17,7 @@ import {
   deleteImageIfOrphaned
 } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { getZeroStockCleanupHours } from '../constants';
 
 interface StockContextType {
   products: Product[];
@@ -831,7 +832,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const cleanUpZeroStockProducts = async (maxAgeHours: number = 24): Promise<number> => {
+  const cleanUpZeroStockProducts = async (maxAgeHours: number = getZeroStockCleanupHours()): Promise<number> => {
     const cutoffTime = Date.now() - maxAgeHours * 60 * 60 * 1000;
     const staleZeroStockProducts = products.filter(p => {
       if (p.current_stock !== 0) return false;
