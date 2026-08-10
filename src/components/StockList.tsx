@@ -77,43 +77,6 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
 
   return (
     <div className="space-y-4">
-      {/* Location Filter Bar */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-        <button
-          onClick={() => setLocationFilter('all')}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
-            locationFilter === 'all'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <FolderKanban className="w-3.5 h-3.5" /> 全ての保管場所 ({products.length})
-        </button>
-        {locations.map((loc) => {
-          const count = products.filter((p) => p.location === loc.name).length;
-          const isActive = locationFilter === loc.name;
-          return (
-            <button
-              key={loc.id}
-              onClick={() => setLocationFilter(loc.name)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                isActive
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              <span>{loc.name}</span>
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                  isActive ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-600'
-                }`}
-              >
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
 
       {/* Controls Bar: Search & Filter & Views */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-xl clean-card">
@@ -234,11 +197,10 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
           <button
             type="button"
             onClick={onOpenScanner}
-            className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-white flex items-center gap-1.5 shadow-sm transition-all"
+            className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-sm transition-all"
             title="バーコードスキャナを起動"
           >
-            <Camera className="w-4 h-4 text-blue-400" />
-            <span>スキャン</span>
+            <Camera className="w-4 h-4" />
           </button>
 
           {/* Add Product Button */}
@@ -249,6 +211,44 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
             <Plus className="w-4 h-4" /> 新規在庫追加
           </button>
         </div>
+      </div>
+
+      {/* Location Filter Bar */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+        <button
+          onClick={() => setLocationFilter('all')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+            locationFilter === 'all'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <FolderKanban className="w-3.5 h-3.5" /> 全ての保管場所 ({products.length})
+        </button>
+        {locations.map((loc) => {
+          const count = products.filter((p) => p.location === loc.name).length;
+          const isActive = locationFilter === loc.name;
+          return (
+            <button
+              key={loc.id}
+              onClick={() => setLocationFilter(loc.name)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                isActive
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <span>{loc.name}</span>
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                  isActive ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {cleanupMessage && (
