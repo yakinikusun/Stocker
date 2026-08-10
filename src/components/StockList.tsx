@@ -7,6 +7,7 @@ import { StockAdjustModal } from './StockAdjustModal';
 import { ProductEditModal } from './ProductEditModal';
 import { ProductCard } from './ProductCard';
 import { ProductTableRow } from './ProductTableRow';
+import { getZeroStockCleanupHours } from '../constants';
 
 interface StockListProps {
   onOpenAddModal: () => void;
@@ -62,11 +63,12 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
   };
 
   const handleRunCleanup = async () => {
-    const deletedCount = await cleanUpZeroStockProducts(24);
+    const hours = getZeroStockCleanupHours();
+    const deletedCount = await cleanUpZeroStockProducts(hours);
     if (deletedCount > 0) {
-      setCleanupMessage(`24時間以上在庫が0の商品 ${deletedCount} 件を自動削除しました。`);
+      setCleanupMessage(`${hours}時間以上在庫が0の商品 ${deletedCount} 件を自動削除しました。`);
     } else {
-      setCleanupMessage('24時間以上在庫が0の商品は存在しません。');
+      setCleanupMessage(`${hours}時間以上在庫が0の商品は存在しません。`);
     }
     setTimeout(() => setCleanupMessage(null), 4000);
   };
