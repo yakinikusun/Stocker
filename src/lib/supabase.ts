@@ -63,8 +63,8 @@ export async function uploadProductImage(file: File): Promise<string> {
       .upload(filePath, file, { cacheControl: '3600', upsert: true });
 
     if (uploadError) {
-      console.warn('Supabase storage upload error, falling back to base64:', uploadError);
-      return readAsDataURL(file);
+      console.warn('Supabase storage upload error, falling back to compressed base64:', uploadError);
+      return compressImageToDataURL(file);
     }
 
     const { data: publicUrlData } = client.storage
@@ -74,7 +74,46 @@ export async function uploadProductImage(file: File): Promise<string> {
     return publicUrlData.publicUrl;
   }
 
-  return readAsDataURL(file);
+  return compressImageToDataURL(file);
+}
+
+/**
+ * Client-side Canvas image resizing & compression to prevent LocalStorage quota overflow
+ */
+export function compressImageToDataURL(file: File, maxWidth = 800, quality = 0.75): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } else {
+          resolve(event.target?.result as string || '');
+        }
+      };
+      img.onerror = () => {
+        resolve(event.target?.result as string || '');
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = () => resolve('');
+    reader.readAsDataURL(file);
+  });
 }
 
 /**

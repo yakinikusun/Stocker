@@ -272,7 +272,9 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           change_amount: -p.current_stock,
           product_name: p.name,
           jan_code: p.jan_code || null,
-          location: p.location
+          location: p.location,
+          user_email: user?.email || null,
+          user_name: user?.name || null
         }));
         await client.from('stock_history').insert(historyRows);
       }
@@ -611,7 +613,9 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           change_amount: newProd.current_stock,
           product_name: newProd.name,
           jan_code: newProd.jan_code || null,
-          location: newProd.location || '冷蔵庫'
+          location: newProd.location || '冷蔵庫',
+          user_email: user?.email || null,
+          user_name: user?.name || null
         }]);
       }
 
@@ -711,7 +715,9 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         change_amount: actualChange,
         product_name: targetProduct.name,
         jan_code: targetProduct.jan_code || null,
-        location: targetProduct.location
+        location: targetProduct.location,
+        user_email: user?.email || null,
+        user_name: user?.name || null
       }]);
 
       await fetchAllData();
@@ -778,7 +784,9 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           change_amount: -targetProduct.current_stock,
           product_name: targetProduct.name,
           jan_code: targetProduct.jan_code || null,
-          location: targetProduct.location
+          location: targetProduct.location,
+          user_email: user?.email || null,
+          user_name: user?.name || null
         }]);
       } else {
         const clearHistoryItem: StockHistory = {
