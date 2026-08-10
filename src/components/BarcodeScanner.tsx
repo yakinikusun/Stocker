@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, X, Package, AlertCircle, Plus, Search, Play, Square, FolderKanban, Sparkles, Loader2 } from 'lucide-react';
+import { Camera, X, Package, AlertCircle, Plus, Search, Play, Square, FolderKanban, Sparkles, Loader2, BookmarkPlus } from 'lucide-react';
 import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
 import { useStock } from '../context/StockContext';
-import { Product, InitialProductData } from '../types/stock';
+import { Product, Preset, InitialProductData } from '../types/stock';
 import { fetchProductByJanCode, ExternalProductInfo } from '../lib/barcodeLookup';
 
 interface BarcodeScannerProps {
@@ -18,7 +18,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   onScanResult,
   onOpenAddModalWithJan
 }) => {
-  const { getProductsByJanCode } = useStock();
+  const { getProductsByJanCode, presets } = useStock();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
@@ -27,6 +27,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scannedJan, setScannedJan] = useState<string | null>(null);
   const [matchedProducts, setMatchedProducts] = useState<Product[]>([]);
+  const [matchedPresets, setMatchedPresets] = useState<Preset[]>([]);
   const [externalProduct, setExternalProduct] = useState<ExternalProductInfo | null>(null);
   const [isFetchingExternal, setIsFetchingExternal] = useState(false);
   const [manualJanInput, setManualJanInput] = useState('');
@@ -36,6 +37,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     stopCamera();
     setScannedJan(null);
     setMatchedProducts([]);
+    setMatchedPresets([]);
     setExternalProduct(null);
     setIsFetchingExternal(false);
     setManualJanInput('');
@@ -117,6 +119,11 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
 
     const matches = getProductsByJanCode(cleanJan);
     setMatchedProducts(matches);
+
+    const presetMatches = presets.filter(
+      (p) => p.jan_code && p.jan_code.trim() === cleanJan
+    );
+    setMatchedPresets(presetMatches);
 
     stopCamera();
 
@@ -339,7 +346,51 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                   </div>
                 ))}
 
-                {/* 2. Open Food Facts Candidate */}
+                {/* 2. Registered Preset Candidates */}
+                {matchedPresets.map((pst) => (
+                  <div
+                    key={pst.id}
+                    className="p-3 rounded-xl bg-white border border-amber-300 flex items-center justify-between gap-3 shadow-2xs"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      {pst.image_url ? (
+                        <img
+                          src={pst.image_url}
+                          alt={pst.name}
+                          className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shrink-0">
+                          <BookmarkPlus className="w-5 h-5" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-100 text-amber-800 shrink-0">
+                            登録済みプリセット
+                          </span>
+                          <h4 className="font-semibold text-xs text-slate-900 truncate">{pst.name}</h4>
+                        </div>
+                        <span className="text-[11px] text-slate-500 block mt-0.5">
+                          {pst.tags && pst.tags.length > 0 ? `#${pst.tags.join(' #')}` : 'プリセット設定済み'}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectCandidate({
+                        name: pst.name,
+                        tags: pst.tags,
+                        imageUrl: pst.image_url || undefined
+                      })}
+                      className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-sm transition-all shrink-0 cursor-pointer"
+                    >
+                      選択
+                    </button>
+                  </div>
+                ))}
+
+                {/* 3. Open Food Facts Candidate */}
                 {externalProduct && (
                   <div className="p-3 rounded-xl bg-white border border-emerald-300 flex items-center justify-between gap-3 shadow-2xs">
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
