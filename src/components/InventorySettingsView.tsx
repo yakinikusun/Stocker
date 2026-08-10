@@ -43,7 +43,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
   } = useStock();
   const { user } = useAuth();
 
-  const [activeSubTab, setActiveSubTab] = useState<'locations' | 'presets' | 'tags'>('locations');
+  const [activeSubTab, setActiveSubTab] = useState<'locations' | 'presets' | 'tags'>('presets');
 
   // Shared FormModal open states (Addition)
   const [isAddLocationModalOpen, setIsAddLocationModalOpen] = useState(false);
@@ -270,16 +270,6 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
         {/* Sub Navigation Tabs */}
         <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
           <button
-            onClick={() => setActiveSubTab('locations')}
-            className={`flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-              activeSubTab === 'locations'
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <FolderKanban className="w-4 h-4 text-blue-500" /> 保管場所一覧 ({locations.length})
-          </button>
-          <button
             onClick={() => setActiveSubTab('presets')}
             className={`flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
               activeSubTab === 'presets'
@@ -298,6 +288,16 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
             }`}
           >
             <TagIcon className="w-4 h-4 text-amber-500" /> タグ一覧 ({tags.length})
+          </button>
+          <button
+            onClick={() => setActiveSubTab('locations')}
+            className={`flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+              activeSubTab === 'locations'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <FolderKanban className="w-4 h-4 text-blue-500" /> 保管場所一覧 ({locations.length})
           </button>
         </div>
       </div>
@@ -383,7 +383,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                 key={pst.id}
                 className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-start justify-between gap-3 group"
               >
-                <div className="flex items-start gap-3 min-w-0">
+                <div className="flex items-center gap-3 min-w-0">
                   {pst.image_url ? (
                     <img
                       src={pst.image_url}
@@ -400,10 +400,8 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                     {pst.jan_code && (
                       <p className="font-mono text-[10px] text-slate-400 mt-1">JAN: {pst.jan_code}</p>
                     )}
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-end gap-2 shrink-0">
+                    
+                  
                   <button
                     onClick={() => {
                       setSelectedPresetForCall(pst);
@@ -415,6 +413,10 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                   >
                     <Sparkles className="w-3 h-3" /> 在庫に追加
                   </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-end gap-2 shrink-0">
                   
                   <div className="flex items-center gap-1">
                     <button
