@@ -690,10 +690,11 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return false;
     }
 
-    const actualChange = changeAmount < 0 ? Math.max(-targetProduct.current_stock, changeAmount) : changeAmount;
+    const roundedChange = Math.round(changeAmount * 100) / 100;
+    const actualChange = roundedChange < 0 ? Math.max(-targetProduct.current_stock, roundedChange) : roundedChange;
     if (actualChange === 0) return false;
 
-    const newStock = Math.max(0, targetProduct.current_stock + actualChange);
+    const newStock = Math.max(0, Math.round((targetProduct.current_stock + actualChange) * 100) / 100);
     const client = getSupabaseClient();
     const now = new Date().toISOString();
     const currentUserId = user?.id || 'usr-guest';

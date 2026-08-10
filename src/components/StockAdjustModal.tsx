@@ -104,20 +104,22 @@ export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
             <div className="flex-1 flex items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-200">
               <button
                 type="button"
-                onClick={() => setChangeAmount(Math.max(1, changeAmount - 1))}
+                onClick={() => setChangeAmount(Math.max(0, Math.round((changeAmount - 1) * 100) / 100))}
                 className="w-9 h-9 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 font-bold text-lg shadow-sm flex items-center justify-center"
               >
                 -
               </button>
               <input
                 type="number"
-                min="1"
+                step="any"
+                min="0"
                 max={mode === 'subtract' ? product.current_stock : 999}
                 value={changeAmount}
                 onChange={(e) => {
-                  const val = parseInt(e.target.value) || 1;
+                  const val = parseFloat(e.target.value);
+                  const parsedVal = isNaN(val) ? 0 : Math.round(val * 100) / 100;
                   const maxAllowed = mode === 'subtract' ? product.current_stock : 999;
-                  setChangeAmount(Math.max(1, Math.min(maxAllowed, val)));
+                  setChangeAmount(Math.max(0, Math.min(maxAllowed, parsedVal)));
                 }}
                 className="w-20 text-center text-xl font-extrabold font-mono py-1 rounded-lg bg-white border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
               />
@@ -125,7 +127,7 @@ export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
                 type="button"
                 onClick={() => {
                   const maxAllowed = mode === 'subtract' ? product.current_stock : 999;
-                  setChangeAmount(Math.min(maxAllowed, changeAmount + 1));
+                  setChangeAmount(Math.min(maxAllowed, Math.round((changeAmount + 1) * 100) / 100));
                 }}
                 className="w-9 h-9 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 font-bold text-lg shadow-sm flex items-center justify-center"
               >
@@ -142,7 +144,7 @@ export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
             <span className="text-slate-400">{product.current_stock}</span>
             <span className="text-slate-400">→</span>
             <span className={projectedStock === 0 ? 'text-rose-600' : 'text-blue-700'}>
-              {projectedStock} 個
+              {Math.round(projectedStock * 100) / 100} 個
             </span>
           </div>
         </div>
