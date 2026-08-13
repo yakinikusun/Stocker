@@ -76,9 +76,6 @@ export const HistoryLog: React.FC = () => {
           <History className="w-5 h-5 text-blue-600" />
           <div>
             <h2 className="text-base font-bold text-slate-800">在庫操作履歴ログ</h2>
-            <p className="text-xs text-slate-500">
-              直近10分以内の連続操作は自動圧縮集計されています ({histories.length}件 → {compressedHistories.length}行)
-            </p>
           </div>
         </div>
 
@@ -196,7 +193,7 @@ export const HistoryLog: React.FC = () => {
                           </span>
                           {(h.user_email || h.profiles?.email) && (
                             <span className="text-[10px] text-slate-400 font-mono block">
-                              {h.user_email || h.profiles?.email}
+                              {h?.user_email?.split('@')[0] || h.profiles?.email?.split('@')[0]}
                             </span>
                           )}
                         </div>

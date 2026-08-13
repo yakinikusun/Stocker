@@ -44,20 +44,6 @@ export const LoginView: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-12">
       <div className="max-w-md w-full space-y-6">
         {/* App Logo & Header */}
-        <div className="text-center space-y-3">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-500/20">
-            <Refrigerator className="w-9 h-9" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight font-mono">
-              Freezer
-            </h1>
-            <p className="text-xs text-slate-500 font-medium mt-1">
-              家庭用・冷蔵庫在庫管理システム
-            </p>
-          </div>
-        </div>
-
         {/* Connection Status Badge */}
         <div className="flex justify-center">
           <span
@@ -73,14 +59,7 @@ export const LoginView: React.FC = () => {
 
         {/* Login Form Card */}
         <div className="clean-card p-6 bg-white shadow-xl rounded-2xl border border-slate-200/80 space-y-5">
-          <div className="border-b border-slate-100 pb-3">
-            <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-              <LogIn className="w-5 h-5 text-blue-600" /> アカウントログイン
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">
-              ログインIDとパスワードを入力してください（※権限は自動判定されます）。
-            </p>
-          </div>
+
 
           {errorMessage && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center gap-2">
@@ -92,14 +71,13 @@ export const LoginView: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-                ログインID (またはメールアドレス)
+                ID
               </label>
               <div className="relative">
                 <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                 <input
                   type="text"
                   required
-                  placeholder="例: papa, mom, admin"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 font-mono focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
@@ -115,7 +93,6 @@ export const LoginView: React.FC = () => {
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                 <input
                   type="password"
-                  placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 font-mono focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
@@ -129,7 +106,7 @@ export const LoginView: React.FC = () => {
               className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               <LogIn className="w-4 h-4" />
-              {isLoading ? 'ログイン中...' : 'ログインする'}
+              {isLoading ? 'ログイン中...' : 'ログイン'}
             </button>
           </form>
 

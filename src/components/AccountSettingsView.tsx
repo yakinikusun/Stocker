@@ -122,7 +122,6 @@ export const AccountSettingsView: React.FC = () => {
               <div>
                 <h3 className="font-bold text-slate-900 text-sm">{user?.name}</h3>
                 <p className="text-xs text-slate-500 font-mono mt-0.5">ID: {user?.login_id || user?.email.split('@')[0]}</p>
-                <p className="text-[11px] text-slate-400 font-mono mt-0.5">システムメール: {user?.email}</p>
               </div>
               <button
                 type="button"
