@@ -12,11 +12,11 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: '在庫管理システム Freezer',
+        name: '在庫管理システム Stocker',
         short_name: '在庫管理',
         description: '個人・小規模グループ向け クラウド型在庫管理PWA',
-        theme_color: '#0f172a',
-        background_color: '#0f172a',
+        theme_color: '#f0f0f0',
+        background_color: '#f0f0f0',
         display: 'standalone',
         orientation: 'portrait',
         icons: [

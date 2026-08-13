@@ -28,16 +28,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center gap-2.5 cursor-pointer group"
             onClick={() => onSelectTab('main')}
           >
-            <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm group-hover:bg-blue-700 transition-colors">
-              <Refrigerator className="w-4.5 h-4.5" />
-            </div>
             <div className="flex items-baseline gap-2">
               <h1 className="font-extrabold text-base tracking-tight text-slate-900 font-mono">
-                Freezer
+                Stocker
               </h1>
-              <span className="text-xs text-slate-500 font-medium">
-                冷蔵庫・在庫管理
-              </span>
             </div>
           </div>
 

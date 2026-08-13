@@ -43,7 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser({
             id: session.user.id,
             login_id: loginId,
-            email: email || `${loginId}@freezer.local`,
+            email: email || `${loginId}@stocker.local`,
             name: session.user.user_metadata?.name || loginId,
             role: session.user.user_metadata?.role || 'member'
           });
@@ -57,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser({
             id: session.user.id,
             login_id: loginId,
-            email: email || `${loginId}@freezer.local`,
+            email: email || `${loginId}@stocker.local`,
             name: session.user.user_metadata?.name || loginId,
             role: session.user.user_metadata?.role || 'member'
           });
@@ -83,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Auto-determined Role: Use user's registered role, default to 'member' if new
     const autoRole: UserRole = foundUser ? foundUser.role : (cleanId.includes('admin') ? 'admin' : 'member');
-    const dummyEmail = cleanId.includes('@') ? cleanId : `${cleanId}@freezer.local`;
+    const dummyEmail = cleanId.includes('@') ? cleanId : `${cleanId}@stocker.local`;
     const displayName = foundUser ? foundUser.name : cleanId;
 
     const client = getSupabaseClient();

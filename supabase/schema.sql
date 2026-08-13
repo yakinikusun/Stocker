@@ -1,6 +1,6 @@
 -- ===============================================================
--- 在庫管理システム Freezer - Supabase SQL Schema (DDL + RLS Policies + Storage)
--- 仕様書: doc/spec.md に基づく定義
+-- 在庫管理システム Stocker - Supabase SQL Schema (DDL + RLS Policies + Storage)
+
 -- ===============================================================
 
 -- 1. 保管場所マスタ (locations)
@@ -14,8 +14,7 @@ CREATE TABLE IF NOT EXISTS public.locations (
 INSERT INTO public.locations (name) VALUES
   ('冷蔵庫'),
   ('冷凍庫'),
-  ('野菜室'),
-  ('パントリー')
+  ('野菜室')
 ON CONFLICT (name) DO NOTHING;
 
 -- 2. タグマスタ (tags)

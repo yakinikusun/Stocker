@@ -1,5 +1,5 @@
 {
-  "name": "Freezer - 冷蔵庫・在庫管理 PWA DevContainer",
+  "name": "Stocker - 在庫管理 PWA DevContainer",
   "build": {
     "dockerfile": "Dockerfile"
   },

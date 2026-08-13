@@ -1,23 +1,21 @@
 // Storage Keys
 export const STORAGE_KEYS = {
-  SUPABASE_URL: 'freezer_supabase_url',
-  SUPABASE_KEY: 'freezer_supabase_key',
-  FORCE_OFFLINE: 'freezer_force_offline',
-  PRODUCTS: 'freezer_local_products',
-  HISTORIES: 'freezer_local_histories',
-  USER: 'freezer_local_user',
-  LOCATIONS: 'freezer_local_locations',
-  TAGS: 'freezer_local_tags',
-  PRESETS: 'freezer_local_presets'
+  SUPABASE_URL: 'stocker_supabase_url',
+  SUPABASE_KEY: 'stocker_supabase_key',
+  FORCE_OFFLINE: 'stocker_force_offline',
+  PRODUCTS: 'stocker_local_products',
+  HISTORIES: 'stocker_local_histories',
+  USER: 'stocker_local_user',
+  LOCATIONS: 'stocker_local_locations',
+  TAGS: 'stocker_local_tags',
+  PRESETS: 'stocker_local_presets'
 } as const;
 
 // Default Fallback Storage Locations
 export const DEFAULT_LOCATIONS = [
   '冷蔵庫',
   '冷凍庫',
-  '野菜室',
-  'パントリー',
-  '調味料ラック'
+  '野菜室'
 ] as const;
 
 // Auto Cleanup Configuration (Default: 7 days)

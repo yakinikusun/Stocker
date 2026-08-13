@@ -232,11 +232,11 @@ export const saveLocalUser = (user: UserProfile | null) => {
 };
 
 export const loadFamilyAccounts = (): UserProfile[] => {
-  return loadFromStorage('freezer_family_users', MOCK_USERS);
+  return loadFromStorage('stocker_family_users', MOCK_USERS);
 };
 
 export const saveFamilyAccounts = (users: UserProfile[]) => {
-  localStorage.setItem('freezer_family_users', JSON.stringify(users));
+  localStorage.setItem('stocker_family_users', JSON.stringify(users));
 };
 
 export const resetLocalData = () => {
@@ -245,6 +245,6 @@ export const resetLocalData = () => {
   localStorage.setItem(STORAGE_KEYS.PRESETS, JSON.stringify(INITIAL_PRESETS));
   localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(INITIAL_PRODUCTS));
   localStorage.setItem(STORAGE_KEYS.HISTORIES, JSON.stringify(INITIAL_HISTORIES));
-  localStorage.setItem('freezer_family_users', JSON.stringify(MOCK_USERS));
+  localStorage.setItem('stocker_family_users', JSON.stringify(MOCK_USERS));
   localStorage.removeItem(STORAGE_KEYS.USER);
 };

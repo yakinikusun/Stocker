@@ -308,7 +308,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           product_name: p.name,
           jan_code: p.jan_code || '',
           location: p.location,
-          user_email: user?.email || 'guest@freezer.local',
+          user_email: user?.email || 'guest@stocker.local',
           user_name: user?.name || 'ゲスト'
         }));
         const updatedHistories = [...newHistories, ...histories];
@@ -647,7 +647,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           product_name: created.name,
           jan_code: created.jan_code || '',
           location: created.location,
-          user_email: user?.email || 'guest@freezer.local',
+          user_email: user?.email || 'guest@stocker.local',
           user_name: user?.name || 'ゲスト'
         };
         const updatedHistories = [historyItem, ...histories];
@@ -758,7 +758,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           product_name: targetProduct.name,
           jan_code: targetProduct.jan_code || '',
           location: targetProduct.location,
-          user_email: user?.email || 'guest@freezer.local',
+          user_email: user?.email || 'guest@stocker.local',
           user_name: user?.name || 'ゲスト'
         };
         updatedHistories = [historyItem, ...histories];
@@ -800,7 +800,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           product_name: targetProduct.name,
           jan_code: targetProduct.jan_code || '',
           location: targetProduct.location,
-          user_email: user?.email || 'guest@freezer.local',
+          user_email: user?.email || 'guest@stocker.local',
           user_name: user?.name || 'ゲスト'
         };
         const updatedHistories = [clearHistoryItem, ...histories];
