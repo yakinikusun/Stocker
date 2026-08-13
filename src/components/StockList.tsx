@@ -37,7 +37,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
   const { user } = useAuth();
 
   type StockSortOption = 'created_desc' | 'created_asc' | 'updated_desc' | 'updated_asc' | 'name_asc' | 'name_desc' | 'stock_desc' | 'stock_asc';
-  const [stockSort, setStockSort] = useState<StockSortOption>('created_desc');
+  const [stockSort, setStockSort] = useState<StockSortOption>('updated_desc');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedProductForAdjust, setSelectedProductForAdjust] = useState<Product | null>(null);
   const [selectedProductForEdit, setSelectedProductForEdit] = useState<Product | null>(null);
@@ -202,14 +202,14 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
             onChange={(e) => setStockSort(e.target.value as StockSortOption)}
             className="px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer font-medium"
           >
-            <option value="created_desc">並び替え: 登録が新しい順</option>
-            <option value="created_asc">並び替え: 登録が古い順</option>
             <option value="updated_desc">並び替え: 更新が新しい順</option>
             <option value="updated_asc">並び替え: 更新が古い順</option>
-            <option value="name_asc">並び替え: 在庫名 (あ〜ん順)</option>
-            <option value="name_desc">並び替え: 在庫名 (ん〜あ順)</option>
             <option value="stock_desc">並び替え: 在庫数 (多い順)</option>
             <option value="stock_asc">並び替え: 在庫数 (少ない順)</option>
+            <option value="created_desc">並び替え: 登録が新しい順</option>
+            <option value="created_asc">並び替え: 登録が古い順</option>
+            <option value="name_asc">並び替え: 在庫名 (あ〜ん順)</option>
+            <option value="name_desc">並び替え: 在庫名 (ん〜あ順)</option>
           </select>
 
           {/* Grid / Table Toggle */}
