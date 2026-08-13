@@ -36,6 +36,8 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
   } = useStock();
   const { user } = useAuth();
 
+  type StockSortOption = 'created_desc' | 'created_asc' | 'updated_desc' | 'updated_asc' | 'name_asc' | 'name_desc' | 'stock_desc' | 'stock_asc';
+  const [stockSort, setStockSort] = useState<StockSortOption>('created_desc');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedProductForAdjust, setSelectedProductForAdjust] = useState<Product | null>(null);
   const [selectedProductForEdit, setSelectedProductForEdit] = useState<Product | null>(null);
@@ -43,6 +45,29 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
   const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
 
   const tagDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  const sortedFilteredProducts = [...filteredProducts].sort((a, b) => {
+    switch (stockSort) {
+      case 'created_desc':
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      case 'created_asc':
+        return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+      case 'updated_desc':
+        return new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime();
+      case 'updated_asc':
+        return new Date(a.updated_at || a.created_at || 0).getTime() - new Date(b.updated_at || b.created_at || 0).getTime();
+      case 'name_asc':
+        return a.name.localeCompare(b.name, 'ja');
+      case 'name_desc':
+        return b.name.localeCompare(a.name, 'ja');
+      case 'stock_desc':
+        return b.current_stock - a.current_stock;
+      case 'stock_asc':
+        return a.current_stock - b.current_stock;
+      default:
+        return 0;
+    }
+  });
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -102,7 +127,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
 
         {/* Action Buttons & Dropdowns */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Task 4: Tag Filter Dropdown + Checkboxes */}
+          {/* Tag Filter Dropdown */}
           {tags.length > 0 && (
             <div className="relative" ref={tagDropdownRef}>
               <button
@@ -169,6 +194,22 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
             <option value="all">すべての状態</option>
             <option value="in_stock">在庫あり (あり)</option>
             <option value="out_of_stock">在庫切れ (なし)</option>
+          </select>
+
+          {/* Stock Sort Dropdown */}
+          <select
+            value={stockSort}
+            onChange={(e) => setStockSort(e.target.value as StockSortOption)}
+            className="px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer font-medium"
+          >
+            <option value="created_desc">並び替え: 登録が新しい順</option>
+            <option value="created_asc">並び替え: 登録が古い順</option>
+            <option value="updated_desc">並び替え: 更新が新しい順</option>
+            <option value="updated_asc">並び替え: 更新が古い順</option>
+            <option value="name_asc">並び替え: 商品名 (あ〜ん順)</option>
+            <option value="name_desc">並び替え: 商品名 (ん〜あ順)</option>
+            <option value="stock_desc">並び替え: 在庫数 (多い順)</option>
+            <option value="stock_asc">並び替え: 在庫数 (少ない順)</option>
           </select>
 
           {/* Grid / Table Toggle */}
@@ -259,7 +300,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
       )}
 
       {/* Main List Display */}
-      {filteredProducts.length === 0 ? (
+      {sortedFilteredProducts.length === 0 ? (
         <div className="p-12 text-center rounded-xl clean-card space-y-3">
           <Package className="w-12 h-12 text-slate-400 mx-auto" />
           <h3 className="text-sm font-semibold text-slate-700">該当する在庫が見つかりません</h3>
@@ -277,7 +318,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
         </div>
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredProducts.map((p) => (
+          {sortedFilteredProducts.map((p) => (
             <ProductCard
               key={p.id}
               product={p}
@@ -304,7 +345,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {filteredProducts.map((p) => (
+                {sortedFilteredProducts.map((p) => (
                   <ProductTableRow
                     key={p.id}
                     product={p}

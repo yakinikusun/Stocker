@@ -13,7 +13,8 @@ import {
   Pencil,
   Check,
   Loader2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Search
 } from 'lucide-react';
 import { useStock } from '../context/StockContext';
 import { useAuth } from '../context/AuthContext';
@@ -44,6 +45,11 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
   const { user } = useAuth();
 
   const [activeSubTab, setActiveSubTab] = useState<'locations' | 'presets' | 'tags'>('presets');
+
+  // Preset Search & Sort state
+  const [presetSearch, setPresetSearch] = useState('');
+  type PresetSortOption = 'created_desc' | 'created_asc' | 'updated_desc' | 'updated_asc' | 'name_asc' | 'name_desc';
+  const [presetSort, setPresetSort] = useState<PresetSortOption>('created_desc');
 
   // Shared FormModal open states (Addition)
   const [isAddLocationModalOpen, setIsAddLocationModalOpen] = useState(false);
@@ -365,20 +371,90 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
       )}
 
       {/* SubTab 2: Presets */}
-      {activeSubTab === 'presets' && (
-        <div className="clean-card p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-800">登録済みプリセット一覧 (ストック再補充用)</h3>
-            <button
-              onClick={() => setIsAddPresetModalOpen(true)}
-              className="text-xs text-purple-600 font-semibold hover:underline flex items-center gap-1"
-            >
-              <Plus className="w-3.5 h-3.5" /> 新規追加
-            </button>
-          </div>
+      {activeSubTab === 'presets' && (() => {
+        const filteredPresetsList = presets.filter(p => {
+          if (!presetSearch.trim()) return true;
+          const term = presetSearch.toLowerCase().trim();
+          return (
+            p.name.toLowerCase().includes(term) ||
+            (p.jan_code && p.jan_code.includes(term)) ||
+            (p.tags && p.tags.some(t => t.toLowerCase().includes(term)))
+          );
+        });
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {presets.map((pst) => (
+        const sortedFilteredPresets = [...filteredPresetsList].sort((a, b) => {
+          switch (presetSort) {
+            case 'created_desc':
+              return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+            case 'created_asc':
+              return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+            case 'updated_desc':
+              return new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime();
+            case 'updated_asc':
+              return new Date(a.updated_at || a.created_at || 0).getTime() - new Date(b.updated_at || b.created_at || 0).getTime();
+            case 'name_asc':
+              return a.name.localeCompare(b.name, 'ja');
+            case 'name_desc':
+              return b.name.localeCompare(a.name, 'ja');
+            default:
+              return 0;
+          }
+        });
+
+        return (
+          <div className="clean-card p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-800">登録済みプリセット一覧 (ストック再補充用)</h3>
+              <button
+                onClick={() => setIsAddPresetModalOpen(true)}
+                className="text-xs text-purple-600 font-semibold hover:underline flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" /> 新規追加
+              </button>
+            </div>
+
+            {/* Presets Controls: Search & Sort Dropdown */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="プリセット名、JAN、タグで検索..."
+                  value={presetSearch}
+                  onChange={(e) => setPresetSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-1.5 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-purple-500"
+                />
+                {presetSearch && (
+                  <button
+                    onClick={() => setPresetSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
+                  >
+                    クリア
+                  </button>
+                )}
+              </div>
+
+              <select
+                value={presetSort}
+                onChange={(e) => setPresetSort(e.target.value as PresetSortOption)}
+                className="px-3 py-1.5 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:border-purple-500 cursor-pointer font-medium"
+              >
+                <option value="created_desc">並び替え: 登録が新しい順</option>
+                <option value="created_asc">並び替え: 登録が古い順</option>
+                <option value="updated_desc">並び替え: 更新が新しい順</option>
+                <option value="updated_asc">並び替え: 更新が古い順</option>
+                <option value="name_asc">並び替え: 名前順 (あ〜ん)</option>
+                <option value="name_desc">並び替え: 名前順 (ん〜あ)</option>
+              </select>
+            </div>
+
+            {sortedFilteredPresets.length === 0 ? (
+              <div className="p-8 text-center rounded-xl bg-slate-50 text-slate-400 text-xs">
+                該当するプリセットが存在しません。
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {sortedFilteredPresets.map((pst) => (
               <div
                 key={pst.id}
                 className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-start justify-between gap-3 group"
@@ -448,8 +524,10 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
+    );
+  })()}
 
       {/* SubTab 3: Tags */}
       {activeSubTab === 'tags' && (
