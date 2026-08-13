@@ -521,12 +521,16 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
         {/* Initial Stock Count */}
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-slate-700">追加・補充数量</label>
+          <label className="text-xs font-semibold text-slate-700">追加・補充数量 (小数可: 0.5, 1.5 等)</label>
           <input
             type="number"
-            min="1"
+            step="any"
+            min="0"
             value={currentStock}
-            onChange={(e) => setCurrentStock(parseInt(e.target.value) || 1)}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              setCurrentStock(isNaN(val) ? 0 : Math.round(val * 100) / 100);
+            }}
             className="w-full px-3.5 py-2 text-xs font-mono font-bold rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
           />
         </div>

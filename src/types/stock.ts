@@ -51,16 +51,21 @@ export interface StockHistory {
   user_email?: string;
   user_name?: string;
   location?: string;
+  profiles?: {
+    email?: string;
+    name?: string;
+  } | null;
 }
 
 export type UserRole = 'admin' | 'member';
 
 export interface UserProfile {
   id: string;
+  login_id: string;
   email: string;
   name: string;
   role: UserRole;
-  avatar_url?: string;
+  password?: string;
 }
 
 export interface SupabaseConfig {

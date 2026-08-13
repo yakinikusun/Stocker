@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS public.products (
   jan_code TEXT,
   name TEXT NOT NULL,
   image_url TEXT,
-  current_stock INTEGER NOT NULL DEFAULT 0 CHECK (current_stock >= 0),
+  current_stock NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (current_stock >= 0),
   location TEXT NOT NULL DEFAULT '冷蔵庫',
   tags TEXT[] DEFAULT '{}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -69,7 +69,6 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   email TEXT NOT NULL,
   name TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('admin', 'member')),
-  avatar_url TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -79,7 +78,7 @@ CREATE TABLE IF NOT EXISTS public.stock_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id UUID REFERENCES public.products(id) ON DELETE SET NULL,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  change_amount INTEGER NOT NULL,
+  change_amount NUMERIC(10, 2) NOT NULL,
   product_name TEXT,
   jan_code TEXT,
   location TEXT,

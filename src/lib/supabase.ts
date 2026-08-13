@@ -11,9 +11,11 @@ import {
 } from './mockData';
 
 export function getStoredSupabaseConfig() {
+  const isForceOffline = localStorage.getItem(STORAGE_KEYS.FORCE_OFFLINE) === 'true';
   const url = localStorage.getItem(STORAGE_KEYS.SUPABASE_URL) || import.meta.env.VITE_SUPABASE_URL || '';
   const anonKey = localStorage.getItem(STORAGE_KEYS.SUPABASE_KEY) || import.meta.env.VITE_SUPABASE_KEY || '';
-  return { url, anonKey, isConfigured: Boolean(url && anonKey) };
+  const isConfigured = !isForceOffline && Boolean(url && anonKey);
+  return { url, anonKey, isConfigured, isForceOffline };
 }
 
 export function saveSupabaseConfig(url: string, anonKey: string) {
@@ -23,6 +25,14 @@ export function saveSupabaseConfig(url: string, anonKey: string) {
   } else {
     localStorage.removeItem(STORAGE_KEYS.SUPABASE_URL);
     localStorage.removeItem(STORAGE_KEYS.SUPABASE_KEY);
+  }
+}
+
+export function setForceOffline(offline: boolean) {
+  if (offline) {
+    localStorage.setItem(STORAGE_KEYS.FORCE_OFFLINE, 'true');
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.FORCE_OFFLINE);
   }
 }
 
@@ -53,8 +63,8 @@ export async function uploadProductImage(file: File): Promise<string> {
       .upload(filePath, file, { cacheControl: '3600', upsert: true });
 
     if (uploadError) {
-      console.warn('Supabase storage upload error, falling back to base64:', uploadError);
-      return readAsDataURL(file);
+      console.warn('Supabase storage upload error, falling back to compressed base64:', uploadError);
+      return compressImageToDataURL(file);
     }
 
     const { data: publicUrlData } = client.storage
@@ -64,7 +74,46 @@ export async function uploadProductImage(file: File): Promise<string> {
     return publicUrlData.publicUrl;
   }
 
-  return readAsDataURL(file);
+  return compressImageToDataURL(file);
+}
+
+/**
+ * Client-side Canvas image resizing & compression to prevent LocalStorage quota overflow
+ */
+export function compressImageToDataURL(file: File, maxWidth = 800, quality = 0.75): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } else {
+          resolve(event.target?.result as string || '');
+        }
+      };
+      img.onerror = () => {
+        resolve(event.target?.result as string || '');
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = () => resolve('');
+    reader.readAsDataURL(file);
+  });
 }
 
 /**
@@ -163,16 +212,32 @@ export const loadLocalHistories = (): StockHistory[] =>
 export const saveLocalHistories = (histories: StockHistory[]) =>
   localStorage.setItem(STORAGE_KEYS.HISTORIES, JSON.stringify(histories));
 
-export const loadLocalUser = (): UserProfile => {
+export const loadLocalUser = (): UserProfile | null => {
   const raw = localStorage.getItem(STORAGE_KEYS.USER);
   if (raw) {
-    try { return JSON.parse(raw); } catch { /* ignore */ }
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.id) return parsed;
+    } catch { /* ignore */ }
   }
-  return MOCK_USERS[0];
+  return null;
 };
 
-export const saveLocalUser = (user: UserProfile) =>
-  localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+export const saveLocalUser = (user: UserProfile | null) => {
+  if (user) {
+    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.USER);
+  }
+};
+
+export const loadFamilyAccounts = (): UserProfile[] => {
+  return loadFromStorage('freezer_family_users', MOCK_USERS);
+};
+
+export const saveFamilyAccounts = (users: UserProfile[]) => {
+  localStorage.setItem('freezer_family_users', JSON.stringify(users));
+};
 
 export const resetLocalData = () => {
   localStorage.setItem(STORAGE_KEYS.LOCATIONS, JSON.stringify(INITIAL_LOCATIONS));
@@ -180,5 +245,6 @@ export const resetLocalData = () => {
   localStorage.setItem(STORAGE_KEYS.PRESETS, JSON.stringify(INITIAL_PRESETS));
   localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(INITIAL_PRODUCTS));
   localStorage.setItem(STORAGE_KEYS.HISTORIES, JSON.stringify(INITIAL_HISTORIES));
-  localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(MOCK_USERS[0]));
+  localStorage.setItem('freezer_family_users', JSON.stringify(MOCK_USERS));
+  localStorage.removeItem(STORAGE_KEYS.USER);
 };

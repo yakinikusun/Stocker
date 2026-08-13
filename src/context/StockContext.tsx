@@ -17,6 +17,7 @@ import {
   deleteImageIfOrphaned
 } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { getZeroStockCleanupHours } from '../constants';
 
 interface StockContextType {
   products: Product[];
@@ -272,7 +273,9 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           change_amount: -p.current_stock,
           product_name: p.name,
           jan_code: p.jan_code || null,
-          location: p.location
+          location: p.location,
+          user_email: user?.email || null,
+          user_name: user?.name || null
         }));
         await client.from('stock_history').insert(historyRows);
       }
@@ -611,7 +614,9 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           change_amount: newProd.current_stock,
           product_name: newProd.name,
           jan_code: newProd.jan_code || null,
-          location: newProd.location || '冷蔵庫'
+          location: newProd.location || '冷蔵庫',
+          user_email: user?.email || null,
+          user_name: user?.name || null
         }]);
       }
 
@@ -686,10 +691,11 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return false;
     }
 
-    const actualChange = changeAmount < 0 ? Math.max(-targetProduct.current_stock, changeAmount) : changeAmount;
+    const roundedChange = Math.round(changeAmount * 100) / 100;
+    const actualChange = roundedChange < 0 ? Math.max(-targetProduct.current_stock, roundedChange) : roundedChange;
     if (actualChange === 0) return false;
 
-    const newStock = Math.max(0, targetProduct.current_stock + actualChange);
+    const newStock = Math.max(0, Math.round((targetProduct.current_stock + actualChange) * 100) / 100);
     const client = getSupabaseClient();
     const now = new Date().toISOString();
     const currentUserId = user?.id || 'usr-guest';
@@ -711,7 +717,9 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         change_amount: actualChange,
         product_name: targetProduct.name,
         jan_code: targetProduct.jan_code || null,
-        location: targetProduct.location
+        location: targetProduct.location,
+        user_email: user?.email || null,
+        user_name: user?.name || null
       }]);
 
       await fetchAllData();
@@ -778,7 +786,9 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           change_amount: -targetProduct.current_stock,
           product_name: targetProduct.name,
           jan_code: targetProduct.jan_code || null,
-          location: targetProduct.location
+          location: targetProduct.location,
+          user_email: user?.email || null,
+          user_name: user?.name || null
         }]);
       } else {
         const clearHistoryItem: StockHistory = {
@@ -822,7 +832,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const cleanUpZeroStockProducts = async (maxAgeHours: number = 24): Promise<number> => {
+  const cleanUpZeroStockProducts = async (maxAgeHours: number = getZeroStockCleanupHours()): Promise<number> => {
     const cutoffTime = Date.now() - maxAgeHours * 60 * 60 * 1000;
     const staleZeroStockProducts = products.filter(p => {
       if (p.current_stock !== 0) return false;
