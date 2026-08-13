@@ -41,17 +41,17 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
         </div>
       </td>
       <td className="p-3.5">
-        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700">
+        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 flex w-max">
           {product.location}
         </span>
       </td>
       <td className="p-3.5">
         {isOutOfStock ? (
           <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1 w-max">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" /> 在庫なし
+            在庫なし
           </span>
         ) : (
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200 w-max">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1 w-max">
             在庫あり ({product.current_stock})
           </span>
         )}

@@ -56,7 +56,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 className="text-slate-400 hover:text-blue-600 p-1 transition-colors"
                 title="編集"
               >
-                <Pencil className="w-3.5 h-3.5" />
+                <Pencil className="w-5.5 h-5.5" />
               </button>
 
               {/* Task 8 & 9: Delete stock item (open to all users) */}
@@ -65,7 +65,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 className="text-slate-400 hover:text-rose-600 p-1 transition-colors"
                 title="在庫を削除"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 className="w-5.5 h-5.5" />
               </button>
             </div>
           </div>
