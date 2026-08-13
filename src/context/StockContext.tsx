@@ -126,7 +126,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             user_id: h.user_id,
             change_amount: h.change_amount,
             created_at: h.created_at,
-            product_name: h.product_name || h.products?.name || '商品',
+            product_name: h.product_name || h.products?.name || '在庫',
             jan_code: h.jan_code ?? h.products?.jan_code ?? '',
             location: h.location || h.products?.location || '冷蔵庫',
             user_email: h.profiles?.email,
@@ -286,7 +286,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .delete()
         .eq('location', targetLoc.name);
       if (prodError) {
-        alert(`該当保管場所の在庫商品削除エラー: ${prodError.message}`);
+        alert(`該当保管場所の在庫在庫削除エラー: ${prodError.message}`);
         return false;
       }
 
@@ -603,7 +603,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .single();
 
       if (error) {
-        alert(`商品追加エラー: ${error.message}`);
+        alert(`在庫追加エラー: ${error.message}`);
         return null;
       }
 
@@ -670,7 +670,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }).eq('id', id);
 
       if (error) {
-        alert(`商品更新エラー: ${error.message}`);
+        alert(`在庫更新エラー: ${error.message}`);
         return false;
       }
       await fetchAllData();

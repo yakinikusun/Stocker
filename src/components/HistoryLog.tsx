@@ -86,7 +86,7 @@ export const HistoryLog: React.FC = () => {
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="商品名、JAN、ユーザー、場所で検索..."
+            placeholder="在庫名、JAN、ユーザー、場所で検索..."
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-all"
@@ -109,7 +109,7 @@ export const HistoryLog: React.FC = () => {
             <thead className="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
               <tr>
                 <th className="p-3.5">日時</th>
-                <th className="p-3.5">対象商品</th>
+                <th className="p-3.5">対象在庫</th>
                 <th className="p-3.5">保管場所</th>
                 <th className="p-3.5">変動数量</th>
                 <th className="p-3.5">担当ユーザー</th>
@@ -138,7 +138,7 @@ export const HistoryLog: React.FC = () => {
                       {/* Product Info */}
                       <td className="p-3.5">
                         <div>
-                          <span className="font-semibold text-slate-900">{h.product_name || '商品'}</span>
+                          <span className="font-semibold text-slate-900">{h.product_name || '在庫'}</span>
                           {h.jan_code ? (
                             <span className="font-mono text-[10px] text-slate-400 block mt-0.5">
                               JAN: {h.jan_code}

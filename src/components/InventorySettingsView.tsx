@@ -240,7 +240,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
               <Layers className="w-5 h-5 text-blue-600" /> 在庫設定マスタ管理
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              冷蔵庫・冷凍庫等の保管場所、分類タグ、汎用在庫プリセットの確認・編集・追加・削除を行えます。
+              保管場所、分類タグ、汎用在庫プリセットの確認・編集・追加・削除を行えます。
             </p>
           </div>
 
@@ -353,7 +353,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                   {user?.role === 'admin' && (
                     <button
                       onClick={() => {
-                        if (confirm(`保管場所「${loc.name}」および、そこに登録されているすべての在庫商品を削除しますか？`)) {
+                        if (confirm(`保管場所「${loc.name}」および、そこに登録されているすべての在庫在庫を削除しますか？`)) {
                           deleteLocation(loc.id);
                         }
                       }}
@@ -419,7 +419,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="プリセット名、JAN、タグで検索..."
+                  placeholder="プリセット名、JANで検索..."
                   value={presetSearch}
                   onChange={(e) => setPresetSearch(e.target.value)}
                   className="w-full pl-9 pr-4 py-1.5 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-purple-500"
@@ -669,7 +669,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
       >
         <form onSubmit={handleUpdatePresetSubmit} className="space-y-3 text-slate-800">
           <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1">商品テンプレート名 *</label>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">在庫テンプレート名 *</label>
             <input
               type="text"
               required
@@ -815,7 +815,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
       >
         <form onSubmit={handleAddPresetSubmit} className="space-y-3 text-slate-800">
           <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1">商品テンプレート名 *</label>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">在庫テンプレート名 *</label>
             <input
               type="text"
               required

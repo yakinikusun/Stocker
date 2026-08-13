@@ -41,7 +41,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             {/* Status Badge */}
             {isOutOfStock ? (
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" /> 在庫なし
+                在庫なし
               </span>
             ) : (
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">

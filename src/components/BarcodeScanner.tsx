@@ -437,7 +437,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                       <Plus className="w-5 h-5" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h4 className="font-semibold text-xs text-slate-900 truncate">新規商品として手入力登録</h4>
+                      <h4 className="font-semibold text-xs text-slate-900 truncate">新規在庫として手入力登録</h4>
                       <span className="text-[11px] text-slate-500 block mt-0.5">JAN: {scannedJan} で登録フォームを開く</span>
                     </div>
                   </div>

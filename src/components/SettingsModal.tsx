@@ -200,7 +200,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
             <div>
               <h5 className="text-xs font-semibold text-slate-200">ローカルデモデータの初期化</h5>
-              <p className="text-[11px] text-slate-400 mt-0.5">サンプル商品・初期履歴に戻します。</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">サンプル在庫・初期履歴に戻します。</p>
             </div>
             <button
               type="button"

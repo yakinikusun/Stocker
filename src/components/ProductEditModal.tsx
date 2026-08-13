@@ -110,14 +110,14 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
     <FormModal
       isOpen={isOpen}
       onClose={onClose}
-      title="商品情報の編集"
+      title="在庫情報の編集"
       icon={<Pencil className="w-5 h-5 text-blue-600" />}
       maxWidth="md"
     >
       <form onSubmit={handleSubmit} className="space-y-4 text-slate-800">
         {/* Product Name */}
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-slate-700">商品名 *</label>
+          <label className="text-xs font-semibold text-slate-700">在庫名 *</label>
           <input
             type="text"
             required
@@ -130,7 +130,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
         {/* Image Upload Zone */}
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-            <ImageIcon className="w-3.5 h-3.5 text-blue-600" /> 商品写真の変更
+            <ImageIcon className="w-3.5 h-3.5 text-blue-600" /> 在庫写真の変更
           </label>
           <input
             type="file"

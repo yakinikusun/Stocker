@@ -253,7 +253,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     setError(null);
 
     if (!name.trim()) {
-      setError('商品名を入力してください。');
+      setError('在庫名を入力してください。');
       return;
     }
 
@@ -316,7 +316,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     <FormModal
       isOpen={isOpen}
       onClose={onClose}
-      title="在庫商品の新規追加・補充"
+      title="在庫在庫の新規追加・補充"
       icon={<Package className="w-5 h-5 text-blue-600" />}
       maxWidth="md"
     >
@@ -362,7 +362,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
         {/* Product Name */}
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-slate-700">商品名 *</label>
+          <label className="text-xs font-semibold text-slate-700">在庫名 *</label>
           <input
             type="text"
             required
@@ -509,12 +509,12 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           />
           {isFetchingJan && (
             <p className="text-[11px] text-blue-600 flex items-center gap-1 pt-0.5 animate-pulse font-medium">
-              <Loader2 className="w-3 h-3 animate-spin" /> Open Food Facts で商品情報を検索中...
+              <Loader2 className="w-3 h-3 animate-spin" /> Open Food Facts で在庫情報を検索中...
             </p>
           )}
           {janFetchedSource && !isFetchingJan && (
             <p className="text-[11px] text-emerald-700 flex items-center gap-1 pt-0.5 font-semibold">
-              <Sparkles className="w-3 h-3 text-emerald-500" /> {janFetchedSource} より商品名・画像を自動読み込みしました
+              <Sparkles className="w-3 h-3 text-emerald-500" /> {janFetchedSource} より在庫名・画像を自動読み込みしました
             </p>
           )}
         </div>
@@ -612,7 +612,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 onChange={(e) => setSaveAsPreset(e.target.checked)}
                 className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500"
               />
-              <span>この商品を在庫プリセットにも追加保存する</span>
+              <span>この在庫を在庫プリセットにも追加保存する</span>
             </label>
           </div>
         )}

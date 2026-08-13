@@ -82,7 +82,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
 
   const handleDelete = (productId: string) => {
     const target = products.find((p) => p.id === productId);
-    if (target && confirm(`「${target.name}」の在庫を0にして削除しますか？（履歴ログに記録されます）`)) {
+    if (target && confirm(`「${target.name}」の在庫を0にして削除しますか？`)) {
       deleteProduct(productId);
     }
   };
@@ -91,9 +91,9 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
     const hours = getZeroStockCleanupHours();
     const deletedCount = await cleanUpZeroStockProducts(hours);
     if (deletedCount > 0) {
-      setCleanupMessage(`${hours}時間以上在庫が0の商品 ${deletedCount} 件を自動削除しました。`);
+      setCleanupMessage(`${hours}時間以上在庫が0の在庫 ${deletedCount} 件を自動削除しました。`);
     } else {
-      setCleanupMessage(`${hours}時間以上在庫が0の商品は存在しません。`);
+      setCleanupMessage(`${hours}時間以上在庫が0の在庫は存在しません。`);
     }
     setTimeout(() => setCleanupMessage(null), 4000);
   };
@@ -110,7 +110,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="商品名、JAN、タグ、保管場所で検索..."
+            placeholder="在庫名、JAN、タグ、保管場所で検索..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-all"
@@ -206,8 +206,8 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
             <option value="created_asc">並び替え: 登録が古い順</option>
             <option value="updated_desc">並び替え: 更新が新しい順</option>
             <option value="updated_asc">並び替え: 更新が古い順</option>
-            <option value="name_asc">並び替え: 商品名 (あ〜ん順)</option>
-            <option value="name_desc">並び替え: 商品名 (ん〜あ順)</option>
+            <option value="name_asc">並び替え: 在庫名 (あ〜ん順)</option>
+            <option value="name_desc">並び替え: 在庫名 (ん〜あ順)</option>
             <option value="stock_desc">並び替え: 在庫数 (多い順)</option>
             <option value="stock_asc">並び替え: 在庫数 (少ない順)</option>
           </select>
@@ -339,7 +339,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
                 <tr>
-                  <th className="p-3.5">商品情報</th>
+                  <th className="p-3.5">在庫情報</th>
                   <th className="p-3.5">保管場所</th>
                   <th className="p-3.5">ステータス</th>
                   <th className="p-3.5 text-right">数量</th>
