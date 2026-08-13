@@ -301,7 +301,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                 {matchedProducts.map((prod) => (
                   <div
                     key={prod.id}
-                    className="p-3 rounded-xl bg-white border border-purple-200 flex items-center justify-between gap-3 shadow-2xs"
+                    className="p-3 rounded-xl bg-white border border-blue-200 flex items-center justify-between gap-3 shadow-2xs"
                   >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       {prod.image_url ? (
@@ -311,13 +311,13 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                           className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-lg bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 shrink-0">
+                        <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 shrink-0">
                           <Package className="w-5 h-5" />
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-purple-100 text-purple-800 shrink-0">
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-100 text-blue-800 shrink-0">
                             既存在庫
                           </span>
                           <h4 className="font-semibold text-xs text-slate-900 truncate">{prod.name}</h4>
@@ -339,7 +339,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                         tags: prod.tags,
                         imageUrl: prod.image_url || undefined
                       })}
-                      className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold shadow-sm transition-all shrink-0"
+                      className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition-all shrink-0"
                     >
                       選択
                     </button>
@@ -350,7 +350,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                 {matchedPresets.map((pst) => (
                   <div
                     key={pst.id}
-                    className="p-3 rounded-xl bg-white border border-amber-300 flex items-center justify-between gap-3 shadow-2xs"
+                    className="p-3 rounded-xl bg-white border border-purple-200  flex items-center justify-between gap-3 shadow-2xs"
                   >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       {pst.image_url ? (
@@ -360,13 +360,13 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                           className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shrink-0">
+                        <div className="w-10 h-10 rounded-lg bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 shrink-0">
                           <BookmarkPlus className="w-5 h-5" />
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-100 text-amber-800 shrink-0">
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-purple-100 text-purple-800 shrink-0">
                             登録済みプリセット
                           </span>
                           <h4 className="font-semibold text-xs text-slate-900 truncate">{pst.name}</h4>
@@ -383,7 +383,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                         tags: pst.tags,
                         imageUrl: pst.image_url || undefined
                       })}
-                      className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-sm transition-all shrink-0 cursor-pointer"
+                      className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold shadow-sm transition-all shrink-0 cursor-pointer"
                     >
                       選択
                     </button>
@@ -437,7 +437,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                       <Plus className="w-5 h-5" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h4 className="font-semibold text-xs text-slate-900 truncate">新規商品として手入力登録</h4>
+                      <h4 className="font-semibold text-xs text-slate-900 truncate">新規在庫として手入力登録</h4>
                       <span className="text-[11px] text-slate-500 block mt-0.5">JAN: {scannedJan} で登録フォームを開く</span>
                     </div>
                   </div>

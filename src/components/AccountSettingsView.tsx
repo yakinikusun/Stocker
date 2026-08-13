@@ -30,7 +30,7 @@ export const AccountSettingsView: React.FC = () => {
     if (success) {
       setIsEditing(false);
       setPasswordInput('');
-      setSaveSuccess('アカウントプロファイル（お名前・パスワード）を更新しました。');
+      setSaveSuccess('アカウントプロファイルを更新しました。');
       setTimeout(() => setSaveSuccess(null), 3000);
     }
   };
@@ -41,18 +41,8 @@ export const AccountSettingsView: React.FC = () => {
       <div className="clean-card p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-            <User className="w-5 h-5 text-blue-600" /> マイアカウント情報
+            <User className="w-5 h-5 text-blue-600" /> アカウント情報
           </h2>
-          <span
-            className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 ${
-              isAdmin
-                ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                : 'bg-blue-100 text-blue-800 border border-blue-200'
-            }`}
-          >
-            <Shield className="w-3.5 h-3.5" />
-            {isAdmin ? '管理者 (admin)' : '一般メンバー (member)'}
-          </span>
         </div>
 
         {saveSuccess && (
@@ -122,7 +112,6 @@ export const AccountSettingsView: React.FC = () => {
               <div>
                 <h3 className="font-bold text-slate-900 text-sm">{user?.name}</h3>
                 <p className="text-xs text-slate-500 font-mono mt-0.5">ID: {user?.login_id || user?.email.split('@')[0]}</p>
-                <p className="text-[11px] text-slate-400 font-mono mt-0.5">システムメール: {user?.email}</p>
               </div>
               <button
                 type="button"

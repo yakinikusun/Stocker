@@ -41,7 +41,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             {/* Status Badge */}
             {isOutOfStock ? (
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" /> 在庫なし
+                在庫なし
               </span>
             ) : (
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -56,7 +56,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 className="text-slate-400 hover:text-blue-600 p-1 transition-colors"
                 title="編集"
               >
-                <Pencil className="w-3.5 h-3.5" />
+                <Pencil className="w-5.5 h-5.5" />
               </button>
 
               {/* Task 8 & 9: Delete stock item (open to all users) */}
@@ -65,7 +65,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 className="text-slate-400 hover:text-rose-600 p-1 transition-colors"
                 title="在庫を削除"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 className="w-5.5 h-5.5" />
               </button>
             </div>
           </div>

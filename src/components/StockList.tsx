@@ -37,7 +37,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
   const { user } = useAuth();
 
   type StockSortOption = 'created_desc' | 'created_asc' | 'updated_desc' | 'updated_asc' | 'name_asc' | 'name_desc' | 'stock_desc' | 'stock_asc';
-  const [stockSort, setStockSort] = useState<StockSortOption>('created_desc');
+  const [stockSort, setStockSort] = useState<StockSortOption>('updated_desc');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedProductForAdjust, setSelectedProductForAdjust] = useState<Product | null>(null);
   const [selectedProductForEdit, setSelectedProductForEdit] = useState<Product | null>(null);
@@ -82,7 +82,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
 
   const handleDelete = (productId: string) => {
     const target = products.find((p) => p.id === productId);
-    if (target && confirm(`「${target.name}」の在庫を0にして削除しますか？（履歴ログに記録されます）`)) {
+    if (target && confirm(`「${target.name}」の在庫を0にして削除しますか？`)) {
       deleteProduct(productId);
     }
   };
@@ -91,9 +91,9 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
     const hours = getZeroStockCleanupHours();
     const deletedCount = await cleanUpZeroStockProducts(hours);
     if (deletedCount > 0) {
-      setCleanupMessage(`${hours}時間以上在庫が0の商品 ${deletedCount} 件を自動削除しました。`);
+      setCleanupMessage(`${hours}時間以上在庫が0の在庫 ${deletedCount} 件を自動削除しました。`);
     } else {
-      setCleanupMessage(`${hours}時間以上在庫が0の商品は存在しません。`);
+      setCleanupMessage(`${hours}時間以上在庫が0の在庫は存在しません。`);
     }
     setTimeout(() => setCleanupMessage(null), 4000);
   };
@@ -102,43 +102,6 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
 
   return (
     <div className="space-y-4">
-      {/* Location Filter Bar */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-        <button
-          onClick={() => setLocationFilter('all')}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
-            locationFilter === 'all'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <FolderKanban className="w-3.5 h-3.5" /> 全ての保管場所 ({products.length})
-        </button>
-        {locations.map((loc) => {
-          const count = products.filter((p) => p.location === loc.name).length;
-          const isActive = locationFilter === loc.name;
-          return (
-            <button
-              key={loc.id}
-              onClick={() => setLocationFilter(loc.name)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                isActive
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              <span>{loc.name}</span>
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                  isActive ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-600'
-                }`}
-              >
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
 
       {/* Controls Bar: Search & Filter & Views */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-xl clean-card">
@@ -147,7 +110,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="商品名、JAN、タグ、保管場所で検索..."
+            placeholder="在庫名、JAN、タグ、保管場所で検索..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-all"
@@ -186,7 +149,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
               </button>
 
               {isTagDropdownOpen && (
-                <div className="absolute right-0 top-full mt-1.5 w-48 p-2 rounded-xl bg-white border border-slate-200 shadow-xl z-30 space-y-1">
+                <div className="absolute left-0 top-full mt-1.5 w-48 max-w-[calc(100vw-2rem)] p-2 rounded-xl bg-white border border-slate-200 shadow-xl z-30 space-y-1">
                   <div className="flex items-center justify-between pb-1 border-b border-slate-100 px-1">
                     <span className="text-[11px] font-bold text-slate-600">タグで絞り込み</span>
                     {selectedTagFilters.length > 0 && (
@@ -239,14 +202,14 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
             onChange={(e) => setStockSort(e.target.value as StockSortOption)}
             className="px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer font-medium"
           >
-            <option value="created_desc">並び替え: 登録が新しい順</option>
-            <option value="created_asc">並び替え: 登録が古い順</option>
             <option value="updated_desc">並び替え: 更新が新しい順</option>
             <option value="updated_asc">並び替え: 更新が古い順</option>
-            <option value="name_asc">並び替え: 商品名 (あ〜ん順)</option>
-            <option value="name_desc">並び替え: 商品名 (ん〜あ順)</option>
             <option value="stock_desc">並び替え: 在庫数 (多い順)</option>
             <option value="stock_asc">並び替え: 在庫数 (少ない順)</option>
+            <option value="created_desc">並び替え: 登録が新しい順</option>
+            <option value="created_asc">並び替え: 登録が古い順</option>
+            <option value="name_asc">並び替え: 在庫名 (あ〜ん順)</option>
+            <option value="name_desc">並び替え: 在庫名 (ん〜あ順)</option>
           </select>
 
           {/* Grid / Table Toggle */}
@@ -270,16 +233,16 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
               <List className="w-4 h-4" />
             </button>
           </div>
-
+          <br />
           {/* Barcode Scan Button */}
+          <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onOpenScanner}
-            className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-white flex items-center gap-1.5 shadow-sm transition-all"
+            className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-sm transition-all"
             title="バーコードスキャナを起動"
           >
-            <Camera className="w-4 h-4 text-blue-400" />
-            <span>スキャン</span>
+            <Camera className="w-4 h-4" />
           </button>
 
           {/* Add Product Button */}
@@ -289,7 +252,46 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
           >
             <Plus className="w-4 h-4" /> 新規在庫追加
           </button>
+          </div>
         </div>
+      </div>
+
+      {/* Location Filter Bar */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+        <button
+          onClick={() => setLocationFilter('all')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+            locationFilter === 'all'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <FolderKanban className="w-3.5 h-3.5" /> 全ての保管場所 ({products.length})
+        </button>
+        {locations.map((loc) => {
+          const count = products.filter((p) => p.location === loc.name).length;
+          const isActive = locationFilter === loc.name;
+          return (
+            <button
+              key={loc.id}
+              onClick={() => setLocationFilter(loc.name)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                isActive
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <span>{loc.name}</span>
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                  isActive ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {cleanupMessage && (
@@ -337,7 +339,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
                 <tr>
-                  <th className="p-3.5">商品情報</th>
+                  <th className="p-3.5">在庫情報</th>
                   <th className="p-3.5">保管場所</th>
                   <th className="p-3.5">ステータス</th>
                   <th className="p-3.5 text-right">数量</th>

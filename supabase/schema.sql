@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS public.presets (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 4. 商品マスタ (products)
+-- 4. 在庫マスタ (products)
 CREATE TABLE IF NOT EXISTS public.products (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   jan_code TEXT,
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 6. 在庫操作履歴 (stock_history) - 追記専用ログ (商品名・場所・JANスナップショット保持)
+-- 6. 在庫操作履歴 (stock_history) - 追記専用ログ (在庫名・場所・JANスナップショット保持)
 CREATE TABLE IF NOT EXISTS public.stock_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id UUID REFERENCES public.products(id) ON DELETE SET NULL,
@@ -89,7 +89,7 @@ CREATE INDEX IF NOT EXISTS idx_stock_history_product_id ON public.stock_history(
 CREATE INDEX IF NOT EXISTS idx_stock_history_created_at ON public.stock_history(created_at DESC);
 
 -- ===============================================================
--- Supabase Storage バケット設定 (商品画像アップロード用)
+-- Supabase Storage バケット設定 (在庫画像アップロード用)
 -- ===============================================================
 
 INSERT INTO storage.buckets (id, name, public)

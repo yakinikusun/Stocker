@@ -44,7 +44,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
   } = useStock();
   const { user } = useAuth();
 
-  const [activeSubTab, setActiveSubTab] = useState<'locations' | 'presets' | 'tags'>('locations');
+  const [activeSubTab, setActiveSubTab] = useState<'locations' | 'presets' | 'tags'>('presets');
 
   // Preset Search & Sort state
   const [presetSearch, setPresetSearch] = useState('');
@@ -240,7 +240,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
               <Layers className="w-5 h-5 text-blue-600" /> 在庫設定マスタ管理
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              冷蔵庫・冷凍庫等の保管場所、分類タグ、汎用在庫プリセットの確認・編集・追加・削除を行えます。
+              保管場所、分類タグ、汎用在庫プリセットの確認・編集・追加・削除を行えます。
             </p>
           </div>
 
@@ -276,16 +276,6 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
         {/* Sub Navigation Tabs */}
         <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
           <button
-            onClick={() => setActiveSubTab('locations')}
-            className={`flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-              activeSubTab === 'locations'
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <FolderKanban className="w-4 h-4 text-blue-500" /> 保管場所一覧 ({locations.length})
-          </button>
-          <button
             onClick={() => setActiveSubTab('presets')}
             className={`flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
               activeSubTab === 'presets'
@@ -304,6 +294,16 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
             }`}
           >
             <TagIcon className="w-4 h-4 text-amber-500" /> タグ一覧 ({tags.length})
+          </button>
+          <button
+            onClick={() => setActiveSubTab('locations')}
+            className={`flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+              activeSubTab === 'locations'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <FolderKanban className="w-4 h-4 text-blue-500" /> 保管場所一覧 ({locations.length})
           </button>
         </div>
       </div>
@@ -347,20 +347,20 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                     className="p-1 text-slate-400 hover:text-blue-600 transition-colors"
                     title="編集 (モーダル表示)"
                   >
-                    <Pencil className="w-3.5 h-3.5" />
+                    <Pencil className="w-4 h-4" />
                   </button>
 
                   {user?.role === 'admin' && (
                     <button
                       onClick={() => {
-                        if (confirm(`保管場所「${loc.name}」および、そこに登録されているすべての在庫商品を削除しますか？`)) {
+                        if (confirm(`保管場所「${loc.name}」および、そこに登録されているすべての在庫在庫を削除しますか？`)) {
                           deleteLocation(loc.id);
                         }
                       }}
                       className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
                       title="削除 (管理者のみ)"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   )}
                 </div>
@@ -419,7 +419,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="プリセット名、JAN、タグで検索..."
+                  placeholder="プリセット名、JANで検索..."
                   value={presetSearch}
                   onChange={(e) => setPresetSearch(e.target.value)}
                   className="w-full pl-9 pr-4 py-1.5 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-purple-500"
@@ -459,7 +459,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                 key={pst.id}
                 className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-start justify-between gap-3 group"
               >
-                <div className="flex items-start gap-3 min-w-0">
+                <div className="flex items-center gap-3 min-w-0">
                   {pst.image_url ? (
                     <img
                       src={pst.image_url}
@@ -476,10 +476,8 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                     {pst.jan_code && (
                       <p className="font-mono text-[10px] text-slate-400 mt-1">JAN: {pst.jan_code}</p>
                     )}
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-end gap-2 shrink-0">
+                    
+                  
                   <button
                     onClick={() => {
                       setSelectedPresetForCall(pst);
@@ -491,6 +489,10 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                   >
                     <Sparkles className="w-3 h-3" /> 在庫に追加
                   </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-end gap-2 shrink-0">
                   
                   <div className="flex items-center gap-1">
                     <button
@@ -504,7 +506,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                       className="text-slate-400 hover:text-purple-600 transition-colors p-1"
                       title="編集 (モーダル表示)"
                     >
-                      <Pencil className="w-3.5 h-3.5" />
+                      <Pencil className="w-5 h-5" />
                     </button>
                     <button
                       onClick={() => {
@@ -515,7 +517,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                       className="text-slate-400 hover:text-rose-600 transition-colors p-1"
                       title="削除"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
@@ -540,23 +542,26 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {tags.map((t) => (
               <div
                 key={t.id}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 flex items-center gap-2"
+                className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between group"
               >
-                <TagIcon className="w-3.5 h-3.5 text-amber-500" />
-                <span className="text-xs font-semibold text-slate-700">{t.name}</span>
+                <div className="flex items-center gap-2.5">
+                  <TagIcon className="w-4 h-4 text-amber-500" />
+                  <span className="text-xs font-semibold text-slate-800">{t.name}</span>
+                </div>
+                <div className="flex items-center gap-1">
                 <button
                   onClick={() => {
                     setEditingTag(t);
                     setEditTagName(t.name);
                   }}
-                  className="text-slate-400 hover:text-amber-600 transition-colors ml-1 p-0.5"
+                  className="text-slate-400 hover:text-amber-600 transition-colors p-1"
                   title="編集 (モーダル表示)"
                 >
-                  <Pencil className="w-3 h-3" />
+                  <Pencil className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => {
@@ -564,11 +569,12 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                       deleteTag(t.id);
                     }
                   }}
-                  className="text-slate-400 hover:text-rose-600 transition-colors p-0.5"
+                  className="text-slate-400 hover:text-rose-600 transition-colors p-1"
                   title="削除"
                 >
-                  <Trash2 className="w-3 h-3" />
+                  <Trash2 className="w-4 h-4" />
                 </button>
+                </div>
               </div>
             ))}
           </div>
@@ -667,7 +673,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
       >
         <form onSubmit={handleUpdatePresetSubmit} className="space-y-3 text-slate-800">
           <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1">商品テンプレート名 *</label>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">在庫テンプレート名 *</label>
             <input
               type="text"
               required
@@ -813,7 +819,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
       >
         <form onSubmit={handleAddPresetSubmit} className="space-y-3 text-slate-800">
           <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1">商品テンプレート名 *</label>
+            <label className="text-xs font-semibold text-slate-700 block mb-1">在庫テンプレート名 *</label>
             <input
               type="text"
               required
