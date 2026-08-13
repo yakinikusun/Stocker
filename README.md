@@ -66,7 +66,7 @@
 
 ```bash
 git clone https://github.com/yakinikusun/Stocker.git
-cd Freezer
+cd Stocker
 npm install
 ```
 
@@ -105,3 +105,33 @@ Supabase ダッシュボードの **SQL Editor** にて、[`supabase/schema.sql`
 - Row Level Security (RLS) ポリシーおよびアクセス権限
 - Storage バケット (`product-images`) およびアップロード権限
 - トリガー関数 (`updated_at` 自動更新、`handle_new_user` 自動プロファイル作成)
+
+---
+
+## 👤 アカウントの新規追加・管理方法 (管理者向け)
+
+`Stocker` では、セキュリティおよび家庭内・グループ運用の簡略化のため、**アカウントの発行・追加・削除は Supabase ダッシュボードにて管理者が一括集中管理**します。
+
+### アカウントの作成手順 (`Supabase Dashboard`)
+
+1. **Supabase ダッシュボード** にログインし、対象プロジェクトの `Authentication` -> `Users` を開きます。
+2. 右上の **「Add User」** -> **「Create User」** をクリックします。
+3. **Email** および **Password** を入力します：
+   - **Email**: ログインID に `@stocker.local` を付けたアドレスを入力します。（例: ログインIDが `papa` の場合は `papa@stocker.local`）
+   - **Password**: ユーザーに割り当てるパスワードを入力します。
+   - **Auto Confirm User**: チェックを入れて有効化します（メール認証スキップ）。
+4. （任意）**User Metadata** にユーザー情報と権限（ロール）を設定します：
+   ```json
+   {
+     "name": "お父さん",
+     "role": "admin"
+   }
+   ```
+   ※ `role` は `"admin"` (管理者) または `"member"` (一般ユーザー) を指定します。未指定の場合はデフォルトで `"member"` が適用されます。
+5. **「Create User」** をクリックして作成を完了します。
+
+### ログイン方法 (Webアプリ側)
+- Web アプリのログイン画面 (`LoginView`) にて、登録した **ログインID**（例: `papa`）と **パスワード** を入力してログインします。
+- 権限（管理者 / メンバー）はシステムが全自動で判定し、適用されます。
+- ログイン後、ユーザー自身で表示名（お名前）やパスワードの変更を行う場合は「アカウント設定」画面から変更可能です。
+

@@ -7,13 +7,13 @@ export const INITIAL_LOCATIONS: Location[] = [
 ];
 
 export const INITIAL_TAGS: Tag[] = [
-  { id: 'tag-1', name: '飲料', color: '#3b82f6' },
-  { id: 'tag-2', name: '調味料', color: '#f59e0b' },
-  { id: 'tag-3', name: '乳製品', color: '#06b6d4' },
-  { id: 'tag-4', name: '冷凍食品', color: '#6366f1' },
-  { id: 'tag-5', name: '生鮮食品', color: '#10b981' },
-  { id: 'tag-6', name: 'お菓子', color: '#ec4899' },
-  { id: 'tag-7', name: '即席食品', color: '#8b5cf6' }
+  { id: 'tag-1', name: '飲料' },
+  { id: 'tag-2', name: '調味料' },
+  { id: 'tag-3', name: '乳製品' },
+  { id: 'tag-4', name: '冷凍食品' },
+  { id: 'tag-5', name: '生鮮食品' },
+  { id: 'tag-6', name: 'お菓子' },
+  { id: 'tag-7', name: '即席食品' }
 ];
 
 export const INITIAL_PRESETS: Preset[] = [

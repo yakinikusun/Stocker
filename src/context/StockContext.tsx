@@ -46,8 +46,8 @@ interface StockContextType {
   deleteLocation: (id: string) => Promise<boolean>;
 
   // Tags CRUD & Edit
-  addTag: (name: string, color?: string) => Promise<boolean>;
-  updateTag: (id: string, name: string, color?: string) => Promise<boolean>;
+  addTag: (name: string) => Promise<boolean>;
+  updateTag: (id: string, name: string) => Promise<boolean>;
   deleteTag: (id: string) => Promise<boolean>;
 
   // Presets CRUD & Edit (Unlinked location)
@@ -330,7 +330,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // Tag Handlers
-  const addTag = async (name: string, color?: string): Promise<boolean> => {
+  const addTag = async (name: string): Promise<boolean> => {
     const cleanName = name.trim();
     if (!cleanName) return false;
 
@@ -343,12 +343,12 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const client = getSupabaseClient();
     if (client && isSupabaseActive) {
-      const { error } = await client.from('tags').insert([{ name: cleanName, color: color || '#3b82f6' }]);
+      const { error } = await client.from('tags').insert([{ name: cleanName }]);
       if (error) { alert(`タグ追加エラー: ${error.message}`); return false; }
       await fetchAllData();
       return true;
     } else {
-      const newTag: Tag = { id: `tag-${Date.now()}`, name: cleanName, color: color || '#3b82f6' };
+      const newTag: Tag = { id: `tag-${Date.now()}`, name: cleanName };
       const updated = [...tags, newTag];
       setTags(updated);
       saveLocalTags(updated);
@@ -356,7 +356,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const updateTag = async (id: string, name: string, color?: string): Promise<boolean> => {
+  const updateTag = async (id: string, name: string): Promise<boolean> => {
     const cleanName = name.trim();
     if (!cleanName) return false;
 
@@ -372,7 +372,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const client = getSupabaseClient();
     if (client && isSupabaseActive) {
-      const { error } = await client.from('tags').update({ name: cleanName, color: color || targetTag.color || '#3b82f6' }).eq('id', id);
+      const { error } = await client.from('tags').update({ name: cleanName }).eq('id', id);
       if (error) { alert(`タグ更新エラー: ${error.message}`); return false; }
 
       // Cascade update tag name on existing products if name changed
@@ -387,7 +387,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       await fetchAllData();
       return true;
     } else {
-      const updatedTags = tags.map(t => t.id === id ? { ...t, name: cleanName, color: color || t.color } : t);
+      const updatedTags = tags.map(t => t.id === id ? { ...t, name: cleanName } : t);
       setTags(updatedTags);
       saveLocalTags(updatedTags);
 

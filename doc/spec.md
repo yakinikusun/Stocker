@@ -135,7 +135,7 @@
 
 ### 4.3 `locations`, `tags`, `presets`, `profiles`
 - `locations`: 保管場所マスタ (`id`, `name`)
-- `tags`: 分類タグマスタ (`id`, `name`, `color`)
+- `tags`: 分類タグマスタ (`id`, `name`)
 - `presets`: 再補充用汎用プリセット (`id`, `name`, `jan_code`, `image_url`, `tags`)
 - `profiles`: ユーザー権限プロファイル (`id`, `email`, `name`, `role`)
 
