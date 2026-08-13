@@ -21,18 +21,17 @@ ON CONFLICT (name) DO NOTHING;
 CREATE TABLE IF NOT EXISTS public.tags (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT UNIQUE NOT NULL,
-  color TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- 初期タグデータ
-INSERT INTO public.tags (name, color) VALUES
-  ('飲料', '#3b82f6'),
-  ('調味料', '#f59e0b'),
-  ('乳製品', '#06b6d4'),
-  ('冷凍食品', '#6366f1'),
-  ('生鮮食品', '#10b981'),
-  ('お菓子', '#ec4899')
+INSERT INTO public.tags (name) VALUES
+  ('飲料'),
+  ('調味料'),
+  ('乳製品'),
+  ('冷凍食品'),
+  ('生鮮食品'),
+  ('お菓子')
 ON CONFLICT (name) DO NOTHING;
 
 -- 3. 在庫プリセットマスタ (presets) - 在庫切れ後の再呼び出し用 (保管場所非紐付け)
