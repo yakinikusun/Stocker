@@ -233,8 +233,9 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
               <List className="w-4 h-4" />
             </button>
           </div>
-
+          <br />
           {/* Barcode Scan Button */}
+          <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onOpenScanner}
@@ -251,6 +252,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
           >
             <Plus className="w-4 h-4" /> 新規在庫追加
           </button>
+          </div>
         </div>
       </div>
 
