@@ -2,33 +2,41 @@ import React, { useState } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { StockProvider, useStock } from './context/StockContext';
 import { Navbar, MainNavTab } from './components/Navbar';
-import { StatCards } from './components/StatCards';
 import { StockList } from './components/StockList';
 import { InventorySettingsView } from './components/InventorySettingsView';
 import { HistoryLog } from './components/HistoryLog';
 import { AccountSettingsView } from './components/AccountSettingsView';
 import { BarcodeScanner } from './components/BarcodeScanner';
 import { ProductModal } from './components/ProductModal';
-import { Refrigerator } from 'lucide-react';
-import { Preset } from './types/stock';
+import { Preset, InitialProductData } from './types/stock';
+
+import { useAuth } from './context/AuthContext';
+import { LoginView } from './components/LoginView';
 
 const AppContent: React.FC = () => {
+  const { user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<MainNavTab>('main');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [prefilledJan, setPrefilledJan] = useState('');
+  const [prefilledData, setPrefilledData] = useState<InitialProductData | undefined>(undefined);
 
   const { createProductFromPreset } = useStock();
 
-  const handleOpenAddModalWithJan = (janCode: string) => {
+  if (!user || !isAuthenticated) {
+    return <LoginView />;
+  }
+
+  const handleOpenAddModalWithJan = (janCode: string, initialData?: InitialProductData) => {
     setPrefilledJan(janCode);
+    setPrefilledData(initialData);
     setIsAddModalOpen(true);
   };
 
   const handleCallPresetToStock = async (preset: Preset) => {
-    const prod = await createProductFromPreset(preset, 1);
+    const prod = await createProductFromPreset(preset, '冷蔵庫', 1);
     if (prod) {
-      alert(`「${preset.name}」を【${preset.location}】の在庫に1個追加しました。`);
+      alert(`「${preset.name}」の在庫を1個追加しました。`);
       setActiveTab('main');
     }
   };
@@ -45,7 +53,6 @@ const AppContent: React.FC = () => {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 pt-5">
         {activeTab === 'main' && (
           <div className="space-y-4">
-            <StatCards />
             <StockList
               onOpenAddModal={() => {
                 setPrefilledJan('');
@@ -65,19 +72,6 @@ const AppContent: React.FC = () => {
         {activeTab === 'account' && <AccountSettingsView />}
       </main>
 
-      {/* Clean Footer */}
-      <footer className="mt-12 py-6 border-t border-slate-200 text-slate-500 text-xs text-center bg-white">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 font-semibold text-slate-700">
-            <Refrigerator className="w-4 h-4 text-blue-600" />
-            <span>冷蔵庫・在庫管理システム Freezer</span>
-          </div>
-          <p className="text-[11px] text-slate-400">
-            完全招待制・家庭用モデル / Cloudflare Pages & Supabase RLS
-          </p>
-        </div>
-      </footer>
-
       {/* Modals */}
       <BarcodeScanner
         isOpen={isScannerOpen}
@@ -90,8 +84,10 @@ const AppContent: React.FC = () => {
         onClose={() => {
           setIsAddModalOpen(false);
           setPrefilledJan('');
+          setPrefilledData(undefined);
         }}
         initialJanCode={prefilledJan}
+        initialData={prefilledData}
         onTriggerScanner={() => setIsScannerOpen(true)}
       />
     </div>

@@ -1,19 +1,13 @@
-import React, { useState } from 'react';
-import {
-  Search,
-  Plus,
-  Minus,
-  Package,
-  LayoutGrid,
-  List,
-  Trash2,
-  RotateCcw,
-  FolderKanban
-} from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Search, Plus, Package, LayoutGrid, List, RotateCcw, FolderKanban, Tag as TagIcon, Sparkles, Trash2, X, ChevronDown, Check, Camera } from 'lucide-react';
 import { useStock } from '../context/StockContext';
 import { useAuth } from '../context/AuthContext';
 import { Product } from '../types/stock';
 import { StockAdjustModal } from './StockAdjustModal';
+import { ProductEditModal } from './ProductEditModal';
+import { ProductCard } from './ProductCard';
+import { ProductTableRow } from './ProductTableRow';
+import { getZeroStockCleanupHours } from '../constants';
 
 interface StockListProps {
   onOpenAddModal: () => void;
@@ -29,39 +23,240 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
     setStatusFilter,
     locationFilter,
     setLocationFilter,
-    selectedTagFilter,
-    setSelectedTagFilter,
+    selectedTagFilters,
+    toggleTagFilter,
+    clearTagFilters,
     locations,
     tags,
     adjustStock,
     deleteProduct,
+    cleanUpZeroStockProducts,
     resetToDefaultDemoData,
     products
   } = useStock();
   const { user } = useAuth();
 
+  type StockSortOption = 'created_desc' | 'created_asc' | 'updated_desc' | 'updated_asc' | 'name_asc' | 'name_desc' | 'stock_desc' | 'stock_asc';
+  const [stockSort, setStockSort] = useState<StockSortOption>('updated_desc');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedProductForAdjust, setSelectedProductForAdjust] = useState<Product | null>(null);
+  const [selectedProductForEdit, setSelectedProductForEdit] = useState<Product | null>(null);
+  const [cleanupMessage, setCleanupMessage] = useState<string | null>(null);
+  const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
 
-  // Binary Stock Badge: 在庫あり vs 在庫なし
-  const getStockBadge = (stock: number) => {
-    if (stock === 0) {
-      return (
-        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" /> 在庫なし
-        </span>
-      );
+  const tagDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  const sortedFilteredProducts = [...filteredProducts].sort((a, b) => {
+    switch (stockSort) {
+      case 'created_desc':
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      case 'created_asc':
+        return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+      case 'updated_desc':
+        return new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime();
+      case 'updated_asc':
+        return new Date(a.updated_at || a.created_at || 0).getTime() - new Date(b.updated_at || b.created_at || 0).getTime();
+      case 'name_asc':
+        return a.name.localeCompare(b.name, 'ja');
+      case 'name_desc':
+        return b.name.localeCompare(a.name, 'ja');
+      case 'stock_desc':
+        return b.current_stock - a.current_stock;
+      case 'stock_asc':
+        return a.current_stock - b.current_stock;
+      default:
+        return 0;
     }
-    return (
-      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-        在庫あり ({stock})
-      </span>
-    );
+  });
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (tagDropdownRef.current && !tagDropdownRef.current.contains(event.target as Node)) {
+        setIsTagDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleDelete = (productId: string) => {
+    const target = products.find((p) => p.id === productId);
+    if (target && confirm(`「${target.name}」の在庫を0にして削除しますか？`)) {
+      deleteProduct(productId);
+    }
   };
+
+  const handleRunCleanup = async () => {
+    const hours = getZeroStockCleanupHours();
+    const deletedCount = await cleanUpZeroStockProducts(hours);
+    if (deletedCount > 0) {
+      setCleanupMessage(`${hours}時間以上在庫が0の在庫 ${deletedCount} 件を自動削除しました。`);
+    } else {
+      setCleanupMessage(`${hours}時間以上在庫が0の在庫は存在しません。`);
+    }
+    setTimeout(() => setCleanupMessage(null), 4000);
+  };
+
+  const zeroStockCount = products.filter(p => p.current_stock === 0).length;
 
   return (
     <div className="space-y-4">
-      {/* Location Filter Bar (冷蔵庫, 冷凍庫, 野菜室 etc.) */}
+
+      {/* Controls Bar: Search & Filter & Views */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-xl clean-card">
+        {/* Search Input */}
+        <div className="relative flex-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="在庫名、JAN、タグ、保管場所で検索..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-all"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
+            >
+              クリア
+            </button>
+          )}
+        </div>
+
+        {/* Action Buttons & Dropdowns */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Tag Filter Dropdown */}
+          {tags.length > 0 && (
+            <div className="relative" ref={tagDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsTagDropdownOpen(!isTagDropdownOpen)}
+                className={`px-3 py-2 text-xs rounded-xl border font-medium flex items-center gap-1.5 transition-all ${
+                  selectedTagFilters.length > 0
+                    ? 'bg-amber-500 text-white border-amber-600 shadow-sm font-semibold'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <TagIcon className="w-3.5 h-3.5" />
+                <span>
+                  {selectedTagFilters.length === 0
+                    ? 'タグ選択'
+                    : `タグ: ${selectedTagFilters.length}件選択中`}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+
+              {isTagDropdownOpen && (
+                <div className="absolute left-0 top-full mt-1.5 w-48 max-w-[calc(100vw-2rem)] p-2 rounded-xl bg-white border border-slate-200 shadow-xl z-30 space-y-1">
+                  <div className="flex items-center justify-between pb-1 border-b border-slate-100 px-1">
+                    <span className="text-[11px] font-bold text-slate-600">タグで絞り込み</span>
+                    {selectedTagFilters.length > 0 && (
+                      <button
+                        onClick={clearTagFilters}
+                        className="text-[10px] text-rose-600 hover:underline"
+                      >
+                        全解除
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-48 overflow-y-auto space-y-0.5">
+                    {tags.map((t) => {
+                      const isChecked = selectedTagFilters.includes(t.name);
+                      return (
+                        <label
+                          key={t.id}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleTagFilter(t.name)}
+                            className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400"
+                          />
+                          <span className="font-medium text-slate-800">#{t.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Status Filter Dropdown */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+            className="px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+          >
+            <option value="all">すべての状態</option>
+            <option value="in_stock">在庫あり (あり)</option>
+            <option value="out_of_stock">在庫切れ (なし)</option>
+          </select>
+
+          {/* Stock Sort Dropdown */}
+          <select
+            value={stockSort}
+            onChange={(e) => setStockSort(e.target.value as StockSortOption)}
+            className="px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer font-medium"
+          >
+            <option value="updated_desc">並び替え: 更新が新しい順</option>
+            <option value="updated_asc">並び替え: 更新が古い順</option>
+            <option value="stock_desc">並び替え: 在庫数 (多い順)</option>
+            <option value="stock_asc">並び替え: 在庫数 (少ない順)</option>
+            <option value="created_desc">並び替え: 登録が新しい順</option>
+            <option value="created_asc">並び替え: 登録が古い順</option>
+            <option value="name_asc">並び替え: 在庫名 (あ〜ん順)</option>
+            <option value="name_desc">並び替え: 在庫名 (ん〜あ順)</option>
+          </select>
+
+          {/* Grid / Table Toggle */}
+          <div className="flex bg-slate-100 rounded-xl p-1 border border-slate-200">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-1.5 rounded-lg text-slate-500 transition-all ${
+                viewMode === 'grid' ? 'bg-white text-blue-600 shadow-sm' : 'hover:text-slate-800'
+              }`}
+              title="カード表示"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              className={`p-1.5 rounded-lg text-slate-500 transition-all ${
+                viewMode === 'table' ? 'bg-white text-blue-600 shadow-sm' : 'hover:text-slate-800'
+              }`}
+              title="リスト表示"
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
+          <br />
+          {/* Barcode Scan Button */}
+          <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onOpenScanner}
+            className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-sm transition-all"
+            title="バーコードスキャナを起動"
+          >
+            <Camera className="w-4 h-4" />
+          </button>
+
+          {/* Add Product Button */}
+          <button
+            onClick={onOpenAddModal}
+            className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-sm transition-all"
+          >
+            <Plus className="w-4 h-4" /> 新規在庫追加
+          </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Location Filter Bar */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
         <button
           onClick={() => setLocationFilter('all')}
@@ -99,89 +294,15 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
         })}
       </div>
 
-      {/* Controls Bar: Search & Filter & Views */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-xl clean-card">
-        {/* Search Input */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="商品名、JAN、タグで検索..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-all"
-          />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
-            >
-              クリア
-            </button>
-          )}
+      {cleanupMessage && (
+        <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs font-medium flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+          <span>{cleanupMessage}</span>
         </div>
-
-        {/* Action Buttons & Dropdowns */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Tag Filter */}
-          <select
-            value={selectedTagFilter}
-            onChange={(e) => setSelectedTagFilter(e.target.value)}
-            className="px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
-          >
-            <option value="all">全てのタグ</option>
-            {tags.map((t) => (
-              <option key={t.id} value={t.name}>
-                🏷️ {t.name}
-              </option>
-            ))}
-          </select>
-
-          {/* Binary Status Filter Dropdown */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
-          >
-            <option value="all">すべての状態</option>
-            <option value="in_stock">在庫あり (あり)</option>
-            <option value="out_of_stock">在庫切れ (なし)</option>
-          </select>
-
-          {/* Grid / Table Toggle */}
-          <div className="flex bg-slate-100 rounded-xl p-1 border border-slate-200">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-lg text-slate-500 transition-all ${
-                viewMode === 'grid' ? 'bg-white text-blue-600 shadow-sm' : 'hover:text-slate-800'
-              }`}
-              title="カード表示"
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('table')}
-              className={`p-1.5 rounded-lg text-slate-500 transition-all ${
-                viewMode === 'table' ? 'bg-white text-blue-600 shadow-sm' : 'hover:text-slate-800'
-              }`}
-              title="リスト表示"
-            >
-              <List className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Add Product Button */}
-          <button
-            onClick={onOpenAddModal}
-            className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-sm transition-all"
-          >
-            <Plus className="w-4 h-4" /> 新規在庫追加
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Main List Display */}
-      {filteredProducts.length === 0 ? (
+      {sortedFilteredProducts.length === 0 ? (
         <div className="p-12 text-center rounded-xl clean-card space-y-3">
           <Package className="w-12 h-12 text-slate-400 mx-auto" />
           <h3 className="text-sm font-semibold text-slate-700">該当する在庫が見つかりません</h3>
@@ -199,94 +320,16 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
         </div>
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredProducts.map((p) => (
-            <div
+          {sortedFilteredProducts.map((p) => (
+            <ProductCard
               key={p.id}
-              className="rounded-xl clean-card-interactive p-4 flex flex-col justify-between space-y-3 relative group bg-white"
-            >
-              {/* Card Header */}
-              <div className="flex items-start gap-3">
-                {p.image_url ? (
-                  <img
-                    src={p.image_url}
-                    alt={p.name}
-                    className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
-                    <Package className="w-8 h-8" />
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    {getStockBadge(p.current_stock)}
-                    {user?.role === 'admin' && (
-                      <button
-                        onClick={() => {
-                          if (confirm(`「${p.name}」を削除してもよろしいですか？`)) {
-                            deleteProduct(p.id);
-                          }
-                        }}
-                        className="text-slate-400 hover:text-rose-600 p-1 transition-colors"
-                        title="削除"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                  <h4 className="font-semibold text-sm text-slate-900 line-clamp-2 leading-snug">
-                    {p.name}
-                  </h4>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700">
-                      {p.location}
-                    </span>
-                    {p.tags.map((t) => (
-                      <span key={t} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">
-                        #{t}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Stock Count & Actions Bar */}
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <div>
-                  <span className="text-[11px] text-slate-500 block">現在数</span>
-                  <span className="text-2xl font-extrabold font-mono text-slate-900 tracking-tight">
-                    {p.current_stock}
-                  </span>
-                </div>
-
-                {/* Direct Adjust Buttons */}
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => adjustStock(p.id, -1, '出庫・消費')}
-                    disabled={p.current_stock <= 0}
-                    className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-700 hover:text-rose-700 border border-slate-200 flex items-center justify-center transition-colors disabled:opacity-30"
-                    title="-1 消費"
-                  >
-                    <Minus className="w-3.5 h-3.5" />
-                  </button>
-
-                  <button
-                    onClick={() => setSelectedProductForAdjust(p)}
-                    className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 text-xs font-semibold transition-colors"
-                  >
-                    変更
-                  </button>
-
-                  <button
-                    onClick={() => adjustStock(p.id, 1, '入荷・追加')}
-                    className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-700 border border-slate-200 flex items-center justify-center transition-colors"
-                    title="+1 追加"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
+              product={p}
+              isAdmin={user?.role === 'admin'}
+              onAdjustStock={adjustStock}
+              onSelectProductForAdjust={setSelectedProductForAdjust}
+              onSelectProductForEdit={setSelectedProductForEdit}
+              onDeleteProduct={handleDelete}
+            />
           ))}
         </div>
       ) : (
@@ -296,7 +339,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
                 <tr>
-                  <th className="p-3.5">商品情報</th>
+                  <th className="p-3.5">在庫情報</th>
                   <th className="p-3.5">保管場所</th>
                   <th className="p-3.5">ステータス</th>
                   <th className="p-3.5 text-right">数量</th>
@@ -304,60 +347,14 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {filteredProducts.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-3.5">
-                      <div className="flex items-center gap-3">
-                        {p.image_url ? (
-                          <img
-                            src={p.image_url}
-                            alt={p.name}
-                            className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
-                            <Package className="w-5 h-5" />
-                          </div>
-                        )}
-                        <div>
-                          <span className="font-semibold text-slate-900 block">{p.name}</span>
-                          <span className="font-mono text-[10px] text-slate-400">JAN: {p.jan_code}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-3.5">
-                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700">
-                        {p.location}
-                      </span>
-                    </td>
-                    <td className="p-3.5">{getStockBadge(p.current_stock)}</td>
-                    <td className="p-3.5 text-right font-mono font-bold text-sm text-slate-900">
-                      {p.current_stock}
-                    </td>
-                    <td className="p-3.5">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => adjustStock(p.id, -1, '出庫・消費')}
-                          disabled={p.current_stock <= 0}
-                          className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-700 flex items-center justify-center transition-colors disabled:opacity-30"
-                        >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setSelectedProductForAdjust(p)}
-                          className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-100 text-blue-700 text-[11px] font-semibold transition-colors"
-                        >
-                          詳細
-                        </button>
-                        <button
-                          onClick={() => adjustStock(p.id, 1, '入荷・追加')}
-                          className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-emerald-100 text-slate-700 flex items-center justify-center transition-colors"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                {sortedFilteredProducts.map((p) => (
+                  <ProductTableRow
+                    key={p.id}
+                    product={p}
+                    onAdjustStock={adjustStock}
+                    onSelectProductForAdjust={setSelectedProductForAdjust}
+                    onSelectProductForEdit={setSelectedProductForEdit}
+                  />
                 ))}
               </tbody>
             </table>
@@ -370,6 +367,13 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
         product={selectedProductForAdjust}
         isOpen={Boolean(selectedProductForAdjust)}
         onClose={() => setSelectedProductForAdjust(null)}
+      />
+
+      {/* Task 6: Product Edit Modal */}
+      <ProductEditModal
+        product={selectedProductForEdit}
+        isOpen={Boolean(selectedProductForEdit)}
+        onClose={() => setSelectedProductForEdit(null)}
       />
     </div>
   );

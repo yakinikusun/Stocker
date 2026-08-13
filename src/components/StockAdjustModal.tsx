@@ -1,21 +1,14 @@
 import React, { useState } from 'react';
-import { X, Plus, Minus, Check, PackageCheck } from 'lucide-react';
+import { Plus, Minus, Check, PackageCheck } from 'lucide-react';
 import { Product } from '../types/stock';
 import { useStock } from '../context/StockContext';
+import { FormModal } from './FormModal';
 
 interface StockAdjustModalProps {
   product: Product | null;
   isOpen: boolean;
   onClose: () => void;
 }
-
-const COMMON_REASONS = [
-  '入荷（買い物・補充）',
-  '消費・調理使用',
-  '賞味期限切れ・廃棄',
-  '棚卸調整',
-  'その他'
-];
 
 export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
   product,
@@ -25,8 +18,6 @@ export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
   const { adjustStock } = useStock();
   const [changeAmount, setChangeAmount] = useState<number>(1);
   const [mode, setMode] = useState<'add' | 'subtract'>('add');
-  const [reason, setReason] = useState<string>('入荷（買い物・補充）');
-  const [customReason, setCustomReason] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   if (!isOpen || !product) return null;
@@ -39,8 +30,7 @@ export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
     if (finalAmount === 0) return;
 
     setIsSubmitting(true);
-    const selectedReason = reason === 'その他' ? (customReason || '手動調整') : reason;
-    const success = await adjustStock(product.id, finalAmount, selectedReason);
+    const success = await adjustStock(product.id, finalAmount);
     setIsSubmitting(false);
 
     if (success) {
@@ -49,155 +39,134 @@ export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-md overflow-hidden rounded-2xl clean-modal border border-slate-200 shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
-          <div className="flex items-center gap-2">
-            <PackageCheck className="w-5 h-5 text-blue-600" />
-            <h3 className="font-bold text-slate-800 text-sm">在庫数量の変更</h3>
+    <FormModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="在庫数量の変更"
+      icon={<PackageCheck className="w-5 h-5 text-blue-600" />}
+      maxWidth="md"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4 text-slate-800">
+        {/* Target Product Summary */}
+        <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-3">
+          {product.image_url ? (
+            <img
+              src={product.image_url}
+              alt={product.name}
+              className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
+            />
+          ) : (
+            <div className="w-12 h-12 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500 shrink-0 font-bold text-lg">
+              {product.name[0]}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <h4 className="font-bold text-sm text-slate-900 truncate">{product.name}</h4>
+            <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+              <span>場所: <strong className="text-slate-700">{product.location}</strong></span>
+              <span>•</span>
+              <span>現在数: <strong className="text-slate-900 font-mono text-sm">{product.current_stock}</strong></span>
+            </div>
           </div>
+        </div>
+
+        {/* Operation Mode Selector (Add / Subtract) */}
+        <div className="grid grid-cols-2 gap-2">
           <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
+            type="button"
+            onClick={() => setMode('add')}
+            className={`py-2.5 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+              mode === 'add'
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-500 shadow-sm'
+                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+            }`}
           >
-            <X className="w-5 h-5" />
+            <Plus className="w-4 h-4 text-emerald-600" /> 在庫を追加する (+)
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('subtract')}
+            disabled={product.current_stock <= 0}
+            className={`py-2.5 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+              mode === 'subtract'
+                ? 'bg-rose-50 text-rose-800 border-rose-500 shadow-sm'
+                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+            }`}
+          >
+            <Minus className="w-4 h-4 text-rose-600" /> 在庫を減らす (-)
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 text-slate-800">
-          {/* Target Product Summary */}
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-3">
-            {product.image_url ? (
-              <img
-                src={product.image_url}
-                alt={product.name}
-                className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
-              />
-            ) : (
-              <div className="w-12 h-12 rounded-lg bg-slate-200 flex items-center justify-center text-slate-400 shrink-0">
-                <PackageCheck className="w-6 h-6" />
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <h4 className="font-semibold text-xs text-slate-900 truncate">{product.name}</h4>
-              <p className="text-[11px] text-blue-700 mt-0.5">保管場所: {product.location}</p>
-              <div className="text-xs text-slate-600 mt-1">
-                現在在庫: <span className="font-bold text-slate-900 font-mono text-sm">{product.current_stock}</span> 個
-              </div>
-            </div>
-          </div>
-
-          {/* Mode Switcher: 入荷 (+) vs 出庫 (-) */}
-          <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
-            <button
-              type="button"
-              onClick={() => {
-                setMode('add');
-                setReason('入荷（買い物・補充）');
-              }}
-              className={`py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-                mode === 'add'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Plus className="w-4 h-4" /> 在庫を追加 (+)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMode('subtract');
-                setReason('消費・調理使用');
-              }}
-              className={`py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-                mode === 'subtract'
-                  ? 'bg-rose-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Minus className="w-4 h-4" /> 在庫を減らす (-)
-            </button>
-          </div>
-
-          {/* Quantity Controls */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700">変動数量</label>
-            <div className="flex items-center justify-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+        {/* Quantity Controls */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-slate-700 block">変動数量</label>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 flex items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-200">
               <button
                 type="button"
-                onClick={() => setChangeAmount(Math.max(1, changeAmount - 1))}
-                className="w-10 h-10 rounded-xl bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 flex items-center justify-center text-lg font-bold transition-colors"
+                onClick={() => setChangeAmount(Math.max(0, Math.round((changeAmount - 1) * 100) / 100))}
+                className="w-9 h-9 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 font-bold text-lg shadow-sm flex items-center justify-center"
               >
                 -
               </button>
               <input
                 type="number"
-                min="1"
+                step="any"
+                min="0"
+                max={mode === 'subtract' ? product.current_stock : 999}
                 value={changeAmount}
-                onChange={(e) => setChangeAmount(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-24 text-center text-xl font-bold font-mono py-1 rounded-lg bg-white border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  const parsedVal = isNaN(val) ? 0 : Math.round(val * 100) / 100;
+                  const maxAllowed = mode === 'subtract' ? product.current_stock : 999;
+                  setChangeAmount(Math.max(0, Math.min(maxAllowed, parsedVal)));
+                }}
+                className="w-20 text-center text-xl font-extrabold font-mono py-1 rounded-lg bg-white border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
               />
               <button
                 type="button"
-                onClick={() => setChangeAmount(changeAmount + 1)}
-                className="w-10 h-10 rounded-xl bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 flex items-center justify-center text-lg font-bold transition-colors"
+                onClick={() => {
+                  const maxAllowed = mode === 'subtract' ? product.current_stock : 999;
+                  setChangeAmount(Math.min(maxAllowed, Math.round((changeAmount + 1) * 100) / 100));
+                }}
+                className="w-9 h-9 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 font-bold text-lg shadow-sm flex items-center justify-center"
               >
                 +
               </button>
             </div>
-            <div className="text-center text-xs text-slate-500">
-              変更後の想定在庫: <span className="font-bold text-slate-900 font-mono">{projectedStock}</span> 個
-            </div>
           </div>
+        </div>
 
-          {/* Reason Selection */}
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700">変更理由</label>
-            <select
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none"
-            >
-              {COMMON_REASONS.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-
-            {reason === 'その他' && (
-              <input
-                type="text"
-                placeholder="理由を入力..."
-                value={customReason}
-                onChange={(e) => setCustomReason(e.target.value)}
-                className="w-full mt-2 px-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none"
-              />
-            )}
+        {/* Projected Stock Preview */}
+        <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-100 flex items-center justify-between text-xs">
+          <span className="text-slate-600 font-medium">変更後の予測在庫数</span>
+          <div className="flex items-center gap-1 font-mono font-bold text-sm">
+            <span className="text-slate-400">{product.current_stock}</span>
+            <span className="text-slate-400">→</span>
+            <span className={projectedStock === 0 ? 'text-rose-600' : 'text-blue-700'}>
+              {Math.round(projectedStock * 100) / 100} 個
+            </span>
           </div>
+        </div>
 
-          {/* Actions */}
-          <div className="flex gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-medium hover:bg-slate-100 transition-colors"
-            >
-              キャンセル
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={`flex-1 py-2.5 rounded-xl text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all ${
-                mode === 'add' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
-              }`}
-            >
-              <Check className="w-4 h-4" /> 決定
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        {/* Submit Buttons */}
+        <div className="flex gap-2 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-100 transition-colors"
+          >
+            キャンセル
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all"
+          >
+            <Check className="w-4 h-4" /> 数量を更新
+          </button>
+        </div>
+      </form>
+    </FormModal>
   );
 };

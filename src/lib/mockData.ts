@@ -4,8 +4,6 @@ export const INITIAL_LOCATIONS: Location[] = [
   { id: 'loc-1', name: '冷蔵庫' },
   { id: 'loc-2', name: '冷凍庫' },
   { id: 'loc-3', name: '野菜室' },
-  { id: 'loc-4', name: 'パントリー' },
-  { id: 'loc-5', name: '調味料ラック' }
 ];
 
 export const INITIAL_TAGS: Tag[] = [
@@ -24,7 +22,7 @@ export const INITIAL_PRESETS: Preset[] = [
     jan_code: '4901330574345',
     name: 'カルビー ポテトチップス うすしお味 60g',
     image_url: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=300&auto=format&fit=crop&q=80',
-    location: 'パントリー',
+    location: '野菜室',
     tags: ['お菓子'],
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -44,7 +42,7 @@ export const INITIAL_PRESETS: Preset[] = [
     jan_code: '4901001000010',
     name: '味の素 ほんだし 120g箱',
     image_url: 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=300&auto=format&fit=crop&q=80',
-    location: '調味料ラック',
+    location: '冷蔵庫',
     tags: ['調味料'],
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -64,17 +62,19 @@ export const INITIAL_PRESETS: Preset[] = [
 export const MOCK_USERS: UserProfile[] = [
   {
     id: 'usr-admin-001',
-    email: 'admin@freezer.local',
+    login_id: 'admin',
+    email: 'admin@stocker.local',
     name: '管理者 太郎',
     role: 'admin',
-    avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
+    password: 'admin'
   },
   {
     id: 'usr-member-002',
-    email: 'staff@freezer.local',
+    login_id: 'staff',
+    email: 'staff@stocker.local',
     name: 'スタッフ 花子',
     role: 'member',
-    avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80'
+    password: 'staff'
   }
 ];
 
@@ -85,7 +85,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     name: 'カルビー ポテトチップス うすしお味 60g',
     image_url: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=300&auto=format&fit=crop&q=80',
     current_stock: 12,
-    location: 'パントリー',
+    location: '野菜室',
     tags: ['お菓子'],
     created_at: new Date(Date.now() - 86400000 * 10).toISOString(),
     updated_at: new Date(Date.now() - 3600000 * 2).toISOString()
@@ -153,24 +153,22 @@ export const INITIAL_HISTORIES: StockHistory[] = [
     product_id: 'prod-001',
     user_id: 'usr-admin-001',
     change_amount: 15,
-    reason: '初期入荷',
     created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
     product_name: 'カルビー ポテトチップス うすしお味 60g',
     jan_code: '4901330574345',
-    user_email: 'admin@freezer.local',
+    user_email: 'admin@stocker.local',
     user_name: '管理者 太郎',
-    location: 'パントリー'
+    location: '野菜室'
   },
   {
     id: 'hist-002',
     product_id: 'prod-002',
     user_id: 'usr-member-002',
     change_amount: -3,
-    reason: '夕食時消費',
     created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
     product_name: 'コカ・コーラ 500ml PET',
     jan_code: '4902102000185',
-    user_email: 'staff@freezer.local',
+    user_email: 'staff@stocker.local',
     user_name: 'スタッフ 花子',
     location: '冷蔵庫'
   }

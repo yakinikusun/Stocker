@@ -3,6 +3,13 @@ export interface Location {
   name: string;
 }
 
+export interface InitialProductData {
+  name?: string;
+  location?: string;
+  tags?: string[];
+  imageUrl?: string;
+}
+
 export interface Tag {
   id: string;
   name: string;
@@ -11,10 +18,10 @@ export interface Tag {
 
 export interface Preset {
   id: string;
-  jan_code?: string;
+  jan_code?: string; // Optional
   name: string;
   image_url?: string | null;
-  location: string;
+  location?: string;
   tags: string[];
   created_at: string;
   updated_at: string;
@@ -22,7 +29,7 @@ export interface Preset {
 
 export interface Product {
   id: string;
-  jan_code: string;
+  jan_code?: string; // Optional
   name: string;
   image_url?: string | null;
   current_stock: number;
@@ -37,7 +44,6 @@ export interface StockHistory {
   product_id: string;
   user_id: string;
   change_amount: number;
-  reason: string;
   created_at: string;
   // Joined fields for display
   product_name?: string;
@@ -45,16 +51,21 @@ export interface StockHistory {
   user_email?: string;
   user_name?: string;
   location?: string;
+  profiles?: {
+    email?: string;
+    name?: string;
+  } | null;
 }
 
 export type UserRole = 'admin' | 'member';
 
 export interface UserProfile {
   id: string;
+  login_id: string;
   email: string;
   name: string;
   role: UserRole;
-  avatar_url?: string;
+  password?: string;
 }
 
 export interface SupabaseConfig {

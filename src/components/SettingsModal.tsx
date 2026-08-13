@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, Shield, Database, User, RefreshCw, Key, ExternalLink, Copy, Check, Info } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useStock } from '../context/StockContext';
@@ -16,6 +16,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [anonKey, setAnonKey] = useState(supabaseConfig.anonKey);
   const [copiedSql, setCopiedSql] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const mouseDownOnBackdropRef = useRef(false);
 
   if (!isOpen) return null;
 
@@ -32,9 +33,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     setAnonKey('');
   };
 
+  const handleBackdropMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) {
+      mouseDownOnBackdropRef.current = true;
+    } else {
+      mouseDownOnBackdropRef.current = false;
+    }
+  };
+
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget && mouseDownOnBackdropRef.current) {
+      onClose();
+    }
+    mouseDownOnBackdropRef.current = false;
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl glass-modal border border-slate-700/60 shadow-2xl max-h-[90vh] flex flex-col">
+    <div
+      onMouseDown={handleBackdropMouseDown}
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-lg overflow-hidden rounded-2xl glass-modal border border-slate-700/60 shadow-2xl max-h-[90vh] flex flex-col cursor-default"
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900/60 shrink-0">
           <div className="flex items-center gap-2">
@@ -177,7 +200,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
             <div>
               <h5 className="text-xs font-semibold text-slate-200">ローカルデモデータの初期化</h5>
-              <p className="text-[11px] text-slate-400 mt-0.5">サンプル商品・初期履歴に戻します。</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">サンプル在庫・初期履歴に戻します。</p>
             </div>
             <button
               type="button"
