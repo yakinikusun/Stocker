@@ -149,7 +149,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
               </button>
 
               {isTagDropdownOpen && (
-                <div className="absolute right-0 top-full mt-1.5 w-48 p-2 rounded-xl bg-white border border-slate-200 shadow-xl z-30 space-y-1">
+                <div className="absolute left-0 top-full mt-1.5 w-48 max-w-[calc(100vw-2rem)] p-2 rounded-xl bg-white border border-slate-200 shadow-xl z-30 space-y-1">
                   <div className="flex items-center justify-between pb-1 border-b border-slate-100 px-1">
                     <span className="text-[11px] font-bold text-slate-600">タグで絞り込み</span>
                     {selectedTagFilters.length > 0 && (
