@@ -114,7 +114,7 @@ export const LoginView: React.FC = () => {
           {import.meta.env.DEV && (
           <div className="pt-4 border-t border-slate-100 space-y-2">
             <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block text-center">
-              登録済み家族アカウントでログイン
+              登録済みアカウントでログイン
             </label>
             <div className="grid grid-cols-2 gap-2">
               {displayUsers.map((u) => (
@@ -135,7 +135,7 @@ export const LoginView: React.FC = () => {
                       u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
                     }`}
                   >
-                    {u.role === 'admin' ? '管理者 (自動判定)' : 'メンバー (自動判定)'}
+                    {u.role === 'admin' ? '管理者' : 'メンバー'}
                   </span>
                 </button>
               ))}

@@ -51,7 +51,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Boxes className="w-4 h-4" /> メイン(在庫一覧)
+              <Boxes className="w-4 h-4" /> 在庫一覧
             </button>
             <button
               onClick={() => onSelectTab('settings')}
