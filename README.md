@@ -65,7 +65,7 @@
 ### 1. リポジトリのクローンと依存関係のインストール
 
 ```bash
-git clone https://github.com/yakinikusun/Freezer.git
+git clone https://github.com/yakinikusun/Stocker.git
 cd Freezer
 npm install
 ```
