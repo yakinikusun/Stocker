@@ -33,34 +33,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [supabaseConfig, setSupabaseConfigState] = useState<SupabaseConfig>(() => getStoredSupabaseConfig());
   const [familyAccounts] = useState<UserProfile[]>(() => loadFamilyAccounts());
 
+  const fetchAndSetUserProfile = async (authUser: any): Promise<UserProfile> => {
+    const email = authUser.email || '';
+    const loginId = authUser.user_metadata?.login_id || email.split('@')[0] || 'user';
+    const client = getSupabaseClient();
+
+    let name = authUser.user_metadata?.name || loginId;
+    let role: UserRole = authUser.user_metadata?.role || (loginId.includes('admin') ? 'admin' : 'member');
+
+    if (client && supabaseConfig.isConfigured) {
+      try {
+        const { data: profile, error } = await client
+          .from('profiles')
+          .select('name, role')
+          .eq('id', authUser.id)
+          .single();
+
+        if (profile && !error) {
+          if (profile.role) role = profile.role as UserRole;
+          if (profile.name) name = profile.name;
+        }
+      } catch (err) {
+        console.warn('Failed to fetch user profile from profiles table:', err);
+      }
+    }
+
+    const updatedUser: UserProfile = {
+      id: authUser.id,
+      login_id: loginId,
+      email: email || `${loginId}@stocker.local`,
+      name: name,
+      role: role
+    };
+
+    setUser(updatedUser);
+    saveLocalUser(updatedUser);
+    return updatedUser;
+  };
+
   useEffect(() => {
     const client = getSupabaseClient();
-    if (client) {
+    if (client && supabaseConfig.isConfigured) {
       client.auth.getSession().then(({ data: { session } }) => {
         if (session?.user) {
-          const email = session.user.email || '';
-          const loginId = session.user.user_metadata?.login_id || email.split('@')[0] || 'user';
-          setUser({
-            id: session.user.id,
-            login_id: loginId,
-            email: email || `${loginId}@stocker.local`,
-            name: session.user.user_metadata?.name || loginId,
-            role: session.user.user_metadata?.role || 'member'
-          });
+          fetchAndSetUserProfile(session.user);
         }
       });
 
       const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
         if (session?.user) {
-          const email = session.user.email || '';
-          const loginId = session.user.user_metadata?.login_id || email.split('@')[0] || 'user';
-          setUser({
-            id: session.user.id,
-            login_id: loginId,
-            email: email || `${loginId}@stocker.local`,
-            name: session.user.user_metadata?.name || loginId,
-            role: session.user.user_metadata?.role || 'member'
-          });
+          fetchAndSetUserProfile(session.user);
+        } else if (_event === 'SIGNED_OUT') {
+          setUser(null);
+          saveLocalUser(null);
         }
       });
 
@@ -94,30 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
 
-      // Fetch user profile info if available
-      let role: UserRole = data.user.user_metadata?.role || (cleanId.includes('admin') ? 'admin' : 'member');
-      let displayName = data.user.user_metadata?.name || cleanId;
-
-      try {
-        const { data: profile } = await client.from('profiles').select('name, role').eq('id', data.user.id).single();
-        if (profile) {
-          if (profile.role) role = profile.role as UserRole;
-          if (profile.name) displayName = profile.name;
-        }
-      } catch (err) {
-        // Fall back to user_metadata
-      }
-
-      const loggedUser: UserProfile = {
-        id: data.user.id,
-        login_id: cleanId,
-        email: dummyEmail,
-        name: displayName,
-        role: role
-      };
-
-      setUser(loggedUser);
-      saveLocalUser(loggedUser);
+      await fetchAndSetUserProfile(data.user);
       return true;
     }
 
