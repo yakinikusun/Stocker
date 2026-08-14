@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "include": [
+    "/*"
+  ],
+  "exclude": [
+    "/assets/*",
+    "/favicon.ico",
+    "/apple-touch-icon.png",
+    "/pwa-*.png",
+    "/maskable-icon.png",
+    "/masked-icon.svg",
+    "/robots.txt",
+    "/sw.js",
+    "/workbox-*.js",
+    "/manifest.webmanifest",
+    "/registerSW.js"
+  ]
+}
