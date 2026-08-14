@@ -75,47 +75,77 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanId = identifier.trim().toLowerCase();
     if (!cleanId) return false;
 
-    // Search in existing family accounts or mock users by login_id or email
+    const dummyEmail = cleanId.includes('@') ? cleanId : `${cleanId}@stocker.local`;
+
+    const client = getSupabaseClient();
+    if (client && supabaseConfig.isConfigured) {
+      if (!password) {
+        console.warn('Password required for Supabase authentication');
+        return false;
+      }
+
+      const { data, error } = await client.auth.signInWithPassword({
+        email: dummyEmail,
+        password: password
+      });
+
+      if (error || !data?.user) {
+        console.warn('Supabase password auth failed:', error?.message);
+        return false;
+      }
+
+      // Fetch user profile info if available
+      let role: UserRole = data.user.user_metadata?.role || (cleanId.includes('admin') ? 'admin' : 'member');
+      let displayName = data.user.user_metadata?.name || cleanId;
+
+      try {
+        const { data: profile } = await client.from('profiles').select('name, role').eq('id', data.user.id).single();
+        if (profile) {
+          if (profile.role) role = profile.role as UserRole;
+          if (profile.name) displayName = profile.name;
+        }
+      } catch (err) {
+        // Fall back to user_metadata
+      }
+
+      const loggedUser: UserProfile = {
+        id: data.user.id,
+        login_id: cleanId,
+        email: dummyEmail,
+        name: displayName,
+        role: role
+      };
+
+      setUser(loggedUser);
+      saveLocalUser(loggedUser);
+      return true;
+    }
+
+    // Local / Offline Demo Mode
     const allKnown = [...familyAccounts, ...MOCK_USERS];
     const foundUser = allKnown.find(
       (u) => u.login_id.toLowerCase() === cleanId || u.email.toLowerCase() === cleanId
     );
 
-    // Auto-determined Role: Use user's registered role, default to 'member' if new
-    const autoRole: UserRole = foundUser ? foundUser.role : (cleanId.includes('admin') ? 'admin' : 'member');
-    const dummyEmail = cleanId.includes('@') ? cleanId : `${cleanId}@stocker.local`;
-    const displayName = foundUser ? foundUser.name : cleanId;
-
-    const client = getSupabaseClient();
-    if (client && supabaseConfig.isConfigured && password) {
-      const { data, error } = await client.auth.signInWithPassword({
-        email: dummyEmail,
-        password: password
-      });
-      if (error) {
-        console.warn('Supabase password auth info:', error.message);
-      } else if (data?.user) {
-        const loggedUser: UserProfile = {
-          id: data.user.id,
-          login_id: cleanId,
-          email: dummyEmail,
-          name: data.user.user_metadata?.name || displayName,
-          role: data.user.user_metadata?.role || autoRole
-        };
-        setUser(loggedUser);
-        saveLocalUser(loggedUser);
-        return true;
-      }
+    if (!foundUser) {
+      console.warn('User not found in local mock accounts');
+      return false;
     }
 
-    // Local / Fallback Login
+    // Verify Password
+    const expectedPassword = foundUser.password || '123456';
+    if (!password || password !== expectedPassword) {
+      console.warn('Invalid password for local mock user');
+      return false;
+    }
+
     const loggedUser: UserProfile = {
-      id: foundUser?.id || `usr-${Date.now()}`,
-      login_id: foundUser?.login_id || cleanId,
-      email: foundUser?.email || dummyEmail,
-      name: displayName,
-      role: autoRole,
-      password: password || foundUser?.password || '123456'
+      id: foundUser.id,
+      login_id: foundUser.login_id,
+      email: foundUser.email,
+      name: foundUser.name,
+      role: foundUser.role,
+      password: expectedPassword
     };
 
     setUser(loggedUser);

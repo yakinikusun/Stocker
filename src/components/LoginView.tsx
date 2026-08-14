@@ -20,7 +20,7 @@ export const LoginView: React.FC = () => {
     try {
       const success = await login(identifier.trim(), password.trim() || undefined);
       if (!success) {
-        setErrorMessage('ログインに失敗しました。ログインIDを確認してください。');
+        setErrorMessage('ログインIDまたはパスワードが正しくありません。');
       }
     } catch (err) {
       console.error(err);
