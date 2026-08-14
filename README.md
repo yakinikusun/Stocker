@@ -98,13 +98,25 @@ npm run dev
 
 ## 🗄️ データベースのセットアップ (Supabase)
 
-Supabase ダッシュボードの **SQL Editor** にて、[`supabase/schema.sql`](file:///home/yakinikusun/tmp/Freezer/supabase/schema.sql) の内容を実行します。
+### 1. SQL スクリプトの実行
+Supabase ダッシュボードの **SQL Editor** にて、[`supabase/schema.sql`](supabase/schema.sql) の内容を実行します。
 
-このスクリプトにより以下が自動生成されます：
-- テーブル構築 (`products`, `stock_history`, `locations`, `tags`, `presets`, `profiles`)
-- Row Level Security (RLS) ポリシーおよびアクセス権限
-- Storage バケット (`product-images`) およびアップロード権限
-- トリガー関数 (`updated_at` 自動更新、`handle_new_user` 自動プロファイル作成)
+このスクリプトにより最新の Supabase 仕様に合わせて以下が全自動で設定されます：
+- **テーブル構築**: `products`, `stock_history`, `locations`, `tags`, `presets`, `profiles`
+- **Row Level Security (RLS)**: 各テーブルへの安全なアクセス制御ポリシー
+- **Data API 権限付与**: `GRANT USAGE ON SCHEMA public` およびテーブル権限自動設定
+- **Realtime 自動設定**: `ALTER PUBLICATION supabase_realtime ADD TABLE ...` および `REPLICA IDENTITY FULL`（全テーブルの Insert/Update/Delete リアルタイム配信が自動有効化）
+- **Storage バケット**: 画像保存用 `product-images`（Public）
+- **自動トリガー**: `updated_at` 自動更新、`handle_new_user` による新規ユーザー初期プロファイル生成
+
+### 2. (確認用) Data API ＆ Realtime の設定確認
+`schema.sql` 実行で自動設定されますが、念のため以下の設定をご確認ください：
+- **Data API (PostgREST)**: **Project Settings (⚙️) -> Data API** にて、**Data API is enabled** が ON で **Exposed Schemas** に `public` が含まれていること。
+- **Realtime (リアルタイム同期)**: **Database -> Publications -> `supabase_realtime`** にて、各テーブルが追加されていること。
+  - **Insert**: **有効 (ON)** （新規在庫・ログ追加の同期）
+  - **Update**: **有効 (ON)** （在庫数増減・商品名変更の同期）
+  - **Delete**: **有効 (ON)** （在庫削除・場所削除の同期）
+  - **Truncate**: **任意 (ON/OFF どちらでも可)**
 
 ---
 
@@ -112,26 +124,27 @@ Supabase ダッシュボードの **SQL Editor** にて、[`supabase/schema.sql`
 
 `Stocker` では、セキュリティおよび家庭内・グループ運用の簡略化のため、**アカウントの発行・追加・削除は Supabase ダッシュボードにて管理者が一括集中管理**します。
 
-### アカウントの作成手順 (`Supabase Dashboard`)
+### アカウントの発行 ＆ ロール（権限）設定手順 (`Supabase Dashboard`)
 
-1. **Supabase ダッシュボード** にログインし、対象プロジェクトの `Authentication` -> `Users` を開きます。
+#### ステップ 1: ユーザーの作成 (`Authentication`)
+1. **Supabase ダッシュボード** にログインし、左メニューの **Authentication -> Users** を開きます。
 2. 右上の **「Add User」** -> **「Create User」** をクリックします。
-3. **Email** および **Password** を入力します：
-   - **Email**: ログインID に `@stocker.local` を付けたアドレスを入力します。（例: ログインIDが `papa` の場合は `papa@stocker.local`）
-   - **Password**: ユーザーに割り当てるパスワードを入力します。
-   - **Auto Confirm User**: チェックを入れて有効化します（メール認証スキップ）。
-4. （任意）**User Metadata** にユーザー情報と権限（ロール）を設定します：
-   ```json
-   {
-     "name": "お父さん",
-     "role": "admin"
-   }
-   ```
-   ※ `role` は `"admin"` (管理者) または `"member"` (一般ユーザー) を指定します。未指定の場合はデフォルトで `"member"` が適用されます。
-5. **「Create User」** をクリックして作成を完了します。
+3. 以下を入力して作成します：
+   - **Email**: ログインID に `@stocker.local` を付けたアドレス（例: ログインIDが `papa` の場合は `papa@stocker.local`）
+   - **Password**: ユーザーに割り当てるパスワード
+   - **Auto Confirm User**: チェックを入れて有効化（メール認証スキップ）
+4. **「Create User」** をクリックします。
+
+#### ステップ 2: 権限（ロール）やお名前の設定 (`Table Editor`)
+ユーザーが作成されると、DBトリガーにより **`profiles`** テーブルへ自動的に初期レコードが生成されます：
+1. 左メニューの **Table Editor** -> **`profiles`** テーブルを開きます。
+2. 作成されたユーザーの行を確認し、セルをダブルクリックして設定を変更します：
+   - **`role`**: `admin`（管理者）または `member`（一般ユーザー）に変更（デフォルトは `member`）
+   - **`name`**: 初期表示名（例: `お父さん`、`ママ` など）
+3. Enterキーを押して保存します。
 
 ### ログイン方法 (Webアプリ側)
 - Web アプリのログイン画面 (`LoginView`) にて、登録した **ログインID**（例: `papa`）と **パスワード** を入力してログインします。
-- 権限（管理者 / メンバー）はシステムが全自動で判定し、適用されます。
-- ログイン後、ユーザー自身で表示名（お名前）やパスワードの変更を行う場合は「アカウント設定」画面から変更可能です。
+- 権限（管理者 / メンバー）はシステムが `profiles` テーブルから全自動で判定して適用します。
+- ログイン後、ユーザー自身でお名前やパスワードを変更したい場合は、アプリ内の「アカウント設定」画面から変更可能です。
 

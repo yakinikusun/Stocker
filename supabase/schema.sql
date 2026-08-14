@@ -1,6 +1,5 @@
 -- ===============================================================
--- 在庫管理システム Stocker - Supabase SQL Schema (DDL + RLS Policies + Storage)
-
+-- 在庫管理システム Stocker - Supabase SQL Schema (DDL + RLS Policies + Storage + Realtime + Data API)
 -- ===============================================================
 
 -- 1. 保管場所マスタ (locations)
@@ -27,11 +26,7 @@ CREATE TABLE IF NOT EXISTS public.tags (
 -- 初期タグデータ
 INSERT INTO public.tags (name) VALUES
   ('飲料'),
-  ('調味料'),
-  ('乳製品'),
-  ('冷凍食品'),
-  ('生鮮食品'),
-  ('お菓子')
+  ('冷凍食品')
 ON CONFLICT (name) DO NOTHING;
 
 -- 3. 在庫プリセットマスタ (presets) - 在庫切れ後の再呼び出し用 (保管場所非紐付け)
@@ -80,6 +75,8 @@ CREATE TABLE IF NOT EXISTS public.stock_history (
   product_name TEXT,
   jan_code TEXT,
   location TEXT,
+  user_name TEXT,
+  user_email TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -99,6 +96,16 @@ CREATE POLICY "authenticated_upload_product_images"
   ON storage.objects FOR INSERT
   TO authenticated
   WITH CHECK (bucket_id = 'product-images');
+
+CREATE POLICY "authenticated_update_product_images"
+  ON storage.objects FOR UPDATE
+  TO authenticated
+  USING (bucket_id = 'product-images');
+
+CREATE POLICY "authenticated_delete_product_images"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (bucket_id = 'product-images');
 
 CREATE POLICY "public_read_product_images"
   ON storage.objects FOR SELECT
@@ -166,6 +173,62 @@ CREATE POLICY "authenticated_insert_products" ON public.products FOR INSERT TO a
 CREATE POLICY "authenticated_update_products" ON public.products FOR UPDATE TO authenticated USING (true);
 CREATE POLICY "authenticated_delete_products" ON public.products FOR DELETE TO authenticated USING (true);
 
+-- ユーザープロファイル (全認証ユーザーが閲覧可能、自身のプロファイルのみ更新可能)
+CREATE POLICY "authenticated_select_profiles" ON public.profiles FOR SELECT TO authenticated USING (true);
+CREATE POLICY "authenticated_update_profiles" ON public.profiles FOR UPDATE TO authenticated USING (auth.uid() = id);
+
 -- 履歴ログ（追記専用、UPDATE/DELETE不可）
 CREATE POLICY "authenticated_select_history" ON public.stock_history FOR SELECT TO authenticated USING (true);
 CREATE POLICY "authenticated_insert_history" ON public.stock_history FOR INSERT TO authenticated WITH CHECK (true);
+
+-- ===============================================================
+-- Data API / PostgREST 権限設定 (最新 Supabase 仕様対応)
+-- ===============================================================
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO anon, authenticated, service_role;
+
+-- ===============================================================
+-- Realtime (リアルタイム同期) 自動有効化設定
+-- ===============================================================
+ALTER TABLE public.products REPLICA IDENTITY FULL;
+ALTER TABLE public.stock_history REPLICA IDENTITY FULL;
+ALTER TABLE public.locations REPLICA IDENTITY FULL;
+ALTER TABLE public.tags REPLICA IDENTITY FULL;
+ALTER TABLE public.presets REPLICA IDENTITY FULL;
+ALTER TABLE public.profiles REPLICA IDENTITY FULL;
+
+DO $$
+DECLARE
+  t record;
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    FOR t IN
+      SELECT c.relname, n.nspname
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public'
+        AND c.relname IN ('products', 'stock_history', 'locations', 'tags', 'presets', 'profiles')
+        AND c.relkind = 'r'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM pg_publication_rel pr
+          JOIN pg_publication p ON p.oid = pr.prpubid
+          WHERE p.pubname = 'supabase_realtime'
+            AND pr.prrelid = c.oid
+        )
+    LOOP
+      BEGIN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE %I.%I', t.nspname, t.relname);
+      EXCEPTION
+        WHEN duplicate_object THEN
+          NULL;
+      END;
+    END LOOP;
+  END IF;
+END $$;
