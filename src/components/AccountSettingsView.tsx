@@ -43,6 +43,12 @@ export const AccountSettingsView: React.FC = () => {
           <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
             <User className="w-5 h-5 text-blue-600" /> アカウント情報
           </h2>
+          {isAdmin && (
+          <span className="px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 bg-purple-100 text-purple-800 border border-purple-200" >
+            <Shield className="w-3.5 h-3.5" />
+             管理者 (admin)
+          </span>
+          )}
         </div>
 
         {saveSuccess && (
@@ -177,7 +183,7 @@ export const AccountSettingsView: React.FC = () => {
 
       {/* 2. Database Connection Status & Mode Switch */}
       
-      {import.meta.env.DEV && isAdmin && (
+      {isAdmin && (
       <div className="clean-card p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -214,7 +220,7 @@ export const AccountSettingsView: React.FC = () => {
               </span>
             </div>
           </div>
-            
+          { import.meta.env.DEV &&(
           <div className="pt-2 border-t border-slate-200 flex gap-2">
             <button
               type="button"
@@ -249,7 +255,7 @@ export const AccountSettingsView: React.FC = () => {
             >
               ○ デモモードに切替
             </button>
-          </div>
+          </div>)}
         </div>
       </div>
       )}

@@ -96,10 +96,11 @@
 [Vite SPA + Glassmorphism UI + Stocker App Branding]
         ↓ @supabase/supabase-js SDK / LocalStorage Fallback (stocker_*)
 [Supabase Cloud / PostgreSQL Database]
+  ├─ Data API / PostgREST (Exposed schemas: public - REST/CRUD API エンドポイント)
   ├─ PostgreSQL (products, stock_history, locations, tags, presets, profiles)
   ├─ Storage (product-images バケット - クライアントサイドCanvas圧縮画像)
   ├─ Auth (Supabase Auth - ユーザー管理・JWT / stocker.local / 権限自動判定)
-  └─ Realtime (複数端末間でのリアルタイム同期)
+  └─ Realtime (複数端末間でのリアルタイム同期 - Publications `supabase_realtime`)
 ```
 
 ---
