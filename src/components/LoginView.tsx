@@ -20,7 +20,7 @@ export const LoginView: React.FC = () => {
     try {
       const success = await login(identifier.trim(), password.trim() || undefined);
       if (!success) {
-        setErrorMessage('ログインに失敗しました。ログインIDを確認してください。');
+        setErrorMessage('ログインIDまたはパスワードが正しくありません。');
       }
     } catch (err) {
       console.error(err);
@@ -45,6 +45,7 @@ export const LoginView: React.FC = () => {
       <div className="max-w-md w-full space-y-6">
         {/* App Logo & Header */}
         {/* Connection Status Badge */}
+        {import.meta.env.DEV && (
         <div className="flex justify-center">
           <span
             className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 ${
@@ -55,7 +56,7 @@ export const LoginView: React.FC = () => {
           >
             {isSupabaseActive ? '● Supabase クラウド同期' : '○ LocalStorage デモモード'}
           </span>
-        </div>
+        </div>)}
 
         {/* Login Form Card */}
         <div className="clean-card p-6 bg-white shadow-xl rounded-2xl border border-slate-200/80 space-y-5">
