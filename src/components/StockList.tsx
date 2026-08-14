@@ -309,7 +309,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
             検索または絞り込み条件を変更するか、新規在庫を追加してください。
           </p>
-          {products.length === 0 && (
+          {products.length === 0 && import.meta.env.DEV && (
             <button
               onClick={resetToDefaultDemoData}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-xs text-blue-600 hover:bg-slate-200 transition-colors mt-2"
