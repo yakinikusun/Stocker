@@ -750,7 +750,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (isCompressible) {
         const updatedLatest: StockHistory = {
           ...latestLog,
-          change_amount: latestLog.change_amount + actualChange,
+          change_amount: Math.round((latestLog.change_amount + actualChange) * 100) / 100,
           created_at: now
         };
         updatedHistories = [updatedLatest, ...histories.slice(1)];
