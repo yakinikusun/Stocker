@@ -102,18 +102,24 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (client && isSupabaseActive) {
       try {
         const [
-          { data: prods },
-          { data: hists },
-          { data: locs },
-          { data: tgs },
-          { data: psts }
+          { data: prods, error: prodErr },
+          { data: hists, error: histErr },
+          { data: locs, error: locErr },
+          { data: tgs, error: tgErr },
+          { data: psts, error: pstErr }
         ] = await Promise.all([
           client.from('products').select('*').order('updated_at', { ascending: false }),
-          client.from('stock_history').select('*, products(name, jan_code, location), profiles(email, name)').order('created_at', { ascending: false }),
+          client.from('stock_history').select('*').order('created_at', { ascending: false }),
           client.from('locations').select('*').order('name'),
           client.from('tags').select('*').order('name'),
           client.from('presets').select('*').order('name')
         ]);
+
+        if (prodErr) console.error('Error fetching products from Supabase:', prodErr);
+        if (histErr) console.error('Error fetching stock_history from Supabase:', histErr);
+        if (locErr) console.error('Error fetching locations from Supabase:', locErr);
+        if (tgErr) console.error('Error fetching tags from Supabase:', tgErr);
+        if (pstErr) console.error('Error fetching presets from Supabase:', pstErr);
 
         if (prods) setProducts(prods as Product[]);
         if (locs) setLocations(locs as Location[]);
@@ -124,13 +130,13 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             id: h.id,
             product_id: h.product_id,
             user_id: h.user_id,
-            change_amount: h.change_amount,
+            change_amount: Number(h.change_amount),
             created_at: h.created_at,
-            product_name: h.product_name || h.products?.name || '在庫',
-            jan_code: h.jan_code ?? h.products?.jan_code ?? '',
-            location: h.location || h.products?.location || '冷蔵庫',
-            user_email: h.profiles?.email,
-            user_name: h.profiles?.name
+            product_name: h.product_name || '在庫',
+            jan_code: h.jan_code ?? '',
+            location: h.location || '冷蔵庫',
+            user_email: h.user_email || undefined,
+            user_name: h.user_name || undefined
           }));
           setHistories(formatted);
         }
@@ -744,7 +750,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (isCompressible) {
         const updatedLatest: StockHistory = {
           ...latestLog,
-          change_amount: latestLog.change_amount + actualChange,
+          change_amount: Math.round((latestLog.change_amount + actualChange) * 100) / 100,
           created_at: now
         };
         updatedHistories = [updatedLatest, ...histories.slice(1)];
