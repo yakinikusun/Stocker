@@ -223,25 +223,41 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
           </button>
 
           {isTagDropdownOpen && (
-            <div className="absolute top-full left-0 right-0 mt-1 z-20 p-2 rounded-xl bg-white border border-slate-200 shadow-xl max-h-48 overflow-y-auto space-y-1">
-              {tags.map((t) => {
-                const isChecked = selectedTags.includes(t.name);
-                return (
-                  <label
-                    key={t.id}
-                    className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer text-xs"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => toggleTag(t.name)}
-                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="font-medium text-slate-800">#{t.name}</span>
-                  </label>
-                );
-              })}
-            </div>
+            <>
+              {/* Transparent Backdrop to close dropdown without closing modal */}
+              <div
+                className="fixed inset-0 z-10 cursor-default"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsTagDropdownOpen(false);
+                }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                }}
+                onTouchStart={(e) => {
+                  e.stopPropagation();
+                }}
+              />
+              <div className="absolute top-full left-0 right-0 mt-1 z-20 p-2 rounded-xl bg-white border border-slate-200 shadow-xl max-h-48 overflow-y-auto space-y-1">
+                {tags.map((t) => {
+                  const isChecked = selectedTags.includes(t.name);
+                  return (
+                    <label
+                      key={t.id}
+                      className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer text-xs"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleTag(t.name)}
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="font-medium text-slate-800">#{t.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
 
