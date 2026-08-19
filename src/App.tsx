@@ -21,7 +21,7 @@ const AppContent: React.FC = () => {
   const [prefilledJan, setPrefilledJan] = useState('');
   const [prefilledData, setPrefilledData] = useState<InitialProductData | undefined>(undefined);
 
-  const { createProductFromPreset } = useStock();
+  const { createProductFromPreset, locationFilter } = useStock();
 
   if (!user || !isAuthenticated) {
     return <LoginView />;
@@ -34,9 +34,10 @@ const AppContent: React.FC = () => {
   };
 
   const handleCallPresetToStock = async (preset: Preset) => {
-    const prod = await createProductFromPreset(preset, '冷蔵庫', 1);
+    const targetLoc = locationFilter && locationFilter !== 'all' ? locationFilter : '冷蔵庫';
+    const prod = await createProductFromPreset(preset, targetLoc, 1);
     if (prod) {
-      alert(`「${preset.name}」の在庫を1個追加しました。`);
+      alert(`「${preset.name}」の在庫を「${targetLoc}」に1個追加しました。`);
       setActiveTab('main');
     }
   };
