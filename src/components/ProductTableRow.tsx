@@ -38,6 +38,13 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
               <span className="font-mono text-[10px] text-slate-400 block">JAN: {product.jan_code}</span>
             ) : null}
           </div>
+          <button
+            onClick={() => onSelectProductForEdit(product)}
+            className="p-1.5 rounded-lg  hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors"
+            title="在庫情報編集"
+          >
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
         </div>
       </td>
       <td className="p-3.5">
@@ -74,14 +81,6 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
             className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-100 text-blue-700 text-[11px] font-semibold transition-colors"
           >
             数量
-          </button>
-
-          <button
-            onClick={() => onSelectProductForEdit(product)}
-            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors"
-            title="在庫情報編集"
-          >
-            <Pencil className="w-3.5 h-3.5" />
           </button>
 
           <button
