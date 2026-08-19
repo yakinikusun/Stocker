@@ -6,28 +6,30 @@
 CREATE TABLE IF NOT EXISTS public.locations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT UNIQUE NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- 初期保管場所データ
-INSERT INTO public.locations (name) VALUES
-  ('冷蔵庫'),
-  ('冷凍庫'),
-  ('野菜室')
-ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.locations (name, sort_order) VALUES
+  ('冷蔵庫', 0),
+  ('冷凍庫', 1),
+  ('野菜室', 2)
+ON CONFLICT (name) DO UPDATE SET sort_order = EXCLUDED.sort_order;
 
 -- 2. タグマスタ (tags)
 CREATE TABLE IF NOT EXISTS public.tags (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT UNIQUE NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- 初期タグデータ
-INSERT INTO public.tags (name) VALUES
-  ('飲料'),
-  ('冷凍食品')
-ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.tags (name, sort_order) VALUES
+  ('飲料', 0),
+  ('冷凍食品', 1),
+ON CONFLICT (name) DO UPDATE SET sort_order = EXCLUDED.sort_order;
 
 -- 3. 在庫プリセットマスタ (presets) - 在庫切れ後の再呼び出し用 (保管場所非紐付け)
 CREATE TABLE IF NOT EXISTS public.presets (
