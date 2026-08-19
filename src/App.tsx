@@ -13,8 +13,7 @@ import { Preset, InitialProductData } from './types/stock';
 import { useAuth } from './context/AuthContext';
 import { LoginView } from './components/LoginView';
 
-const AppContent: React.FC = () => {
-  const { user, isAuthenticated } = useAuth();
+const MainApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<MainNavTab>('main');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -22,10 +21,6 @@ const AppContent: React.FC = () => {
   const [prefilledData, setPrefilledData] = useState<InitialProductData | undefined>(undefined);
 
   const { createProductFromPreset, locationFilter } = useStock();
-
-  if (!user || !isAuthenticated) {
-    return <LoginView />;
-  }
 
   const handleOpenAddModalWithJan = (janCode: string, initialData?: InitialProductData) => {
     setPrefilledJan(janCode);
@@ -95,12 +90,24 @@ const AppContent: React.FC = () => {
   );
 };
 
+const AppContent: React.FC = () => {
+  const { user, isAuthenticated } = useAuth();
+
+  if (!user || !isAuthenticated) {
+    return <LoginView />;
+  }
+
+  return (
+    <StockProvider>
+      <MainApp />
+    </StockProvider>
+  );
+};
+
 export function App() {
   return (
     <AuthProvider>
-      <StockProvider>
-        <AppContent />
-      </StockProvider>
+      <AppContent />
     </AuthProvider>
   );
 }

@@ -77,13 +77,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       client.auth.getSession().then(({ data: { session } }) => {
         if (session?.user) {
           fetchAndSetUserProfile(session.user);
+        } else {
+          setUser(null);
+          saveLocalUser(null);
         }
       });
 
       const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
         if (session?.user) {
           fetchAndSetUserProfile(session.user);
-        } else if (_event === 'SIGNED_OUT') {
+        } else if (_event === 'SIGNED_OUT' || !session) {
           setUser(null);
           saveLocalUser(null);
         }
