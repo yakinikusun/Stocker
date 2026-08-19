@@ -1,6 +1,7 @@
 export interface Location {
   id: string;
   name: string;
+  sort_order?: number;
 }
 
 export interface InitialProductData {
@@ -13,6 +14,7 @@ export interface InitialProductData {
 export interface Tag {
   id: string;
   name: string;
+  sort_order?: number;
 }
 
 export interface Preset {
