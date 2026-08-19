@@ -99,7 +99,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsLoading(true);
     const client = getSupabaseClient();
 
-    if (client && isSupabaseActive) {
+    if (client && isSupabaseActive && user) {
       try {
         const [
           { data: prods, error: prodErr },
@@ -156,7 +156,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setPresets(loadLocalPresets());
     }
     setIsLoading(false);
-  }, [isSupabaseActive]);
+  }, [isSupabaseActive, user?.id]);
 
   useEffect(() => {
     fetchAllData();
@@ -165,9 +165,9 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Realtime Supabase Subscription
   useEffect(() => {
     const client = getSupabaseClient();
-    if (client && isSupabaseActive) {
+    if (client && isSupabaseActive && user) {
       const channel = client
-        .channel('public-stock-changes-v10')
+        .channel(`public-stock-changes-${user.id}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchAllData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_history' }, fetchAllData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, fetchAllData)
@@ -179,7 +179,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         client.removeChannel(channel);
       };
     }
-  }, [isSupabaseActive, fetchAllData]);
+  }, [isSupabaseActive, user?.id, fetchAllData]);
 
   const getProductByJanCode = (janCode: string) => {
     if (!janCode.trim()) return undefined;
