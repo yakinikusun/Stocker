@@ -69,12 +69,12 @@ export const MOCK_USERS: UserProfile[] = [
     password: 'admin'
   },
   {
-    id: 'usr-member-002',
-    login_id: 'staff',
-    email: 'staff@stocker.local',
-    name: 'スタッフ 花子',
+    id: 'usr-member-001',
+    login_id: 'hanako',
+    email: 'hanako@stocker.local',
+    name: 'メンバー 花子',
     role: 'member',
-    password: 'staff'
+    password: 'user'
   }
 ];
 
@@ -87,6 +87,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     current_stock: 12,
     location: '野菜室',
     tags: ['お菓子'],
+    memo: '未開封。おやつ用',
     created_at: new Date(Date.now() - 86400000 * 10).toISOString(),
     updated_at: new Date(Date.now() - 3600000 * 2).toISOString()
   },
@@ -109,6 +110,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     current_stock: 2,
     location: '調味料ラック',
     tags: ['調味料'],
+    memo: '開封済み。残量少なめ',
     created_at: new Date(Date.now() - 86400000 * 8).toISOString(),
     updated_at: new Date(Date.now() - 86400000 * 1).toISOString()
   },

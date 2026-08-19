@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Camera, Plus, Package, Upload, Image as ImageIcon, BookmarkPlus, Tag as TagIcon, FolderKanban, Loader2, ChevronDown, Lock, RotateCcw, Sparkles } from 'lucide-react';
+import { Camera, Plus, Package, Upload, Image as ImageIcon, BookmarkPlus, Tag as TagIcon, FolderKanban, Loader2, ChevronDown, Lock, RotateCcw, Sparkles, FileText } from 'lucide-react';
 import { useStock } from '../context/StockContext';
 import { uploadProductImage } from '../lib/supabase';
 import { fetchProductByJanCode } from '../lib/barcodeLookup';
@@ -36,6 +36,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const [currentStock, setCurrentStock] = useState<number>(1);
   const [location, setLocation] = useState<string>(getDefaultLocation);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [memo, setMemo] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -89,6 +90,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     setImageFile(null);
     setImagePreview(null);
     setSelectedTags([]);
+    setMemo('');
     setSaveAsPreset(false);
     setShowImageControls(false);
     setJanFetchedSource(null);
@@ -116,6 +118,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           setLocation(getDefaultLocation());
         }
         if (initialData.tags !== undefined) setSelectedTags(initialData.tags);
+        if (initialData.memo !== undefined) setMemo(initialData.memo);
         if (initialData.imageUrl !== undefined) {
           setImagePreview(initialData.imageUrl);
           setImageUrl(initialData.imageUrl);
@@ -129,6 +132,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           setName(targetMatch.name);
           setLocation(targetMatch.location);
           setSelectedTags(targetMatch.tags);
+          if (targetMatch.memo) setMemo(targetMatch.memo);
           if (targetMatch.image_url) setImagePreview(targetMatch.image_url);
         } else {
           const matchedPreset = presets.find(p => p.jan_code && p.jan_code.trim() === initialJanCode.trim());
@@ -311,6 +315,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       current_stock: Math.max(0, currentStock),
       location: location || '冷蔵庫',
       tags: selectedTags,
+      memo: memo.trim() || undefined,
       image_url: finalImageUrl
     });
 
@@ -635,6 +640,21 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               )}
             </>
           )}
+        </div>
+
+        {/* Memo / Notes Field */}
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+            <FileText className="w-3.5 h-3.5 text-slate-500" />
+            メモ・備考 <span className="text-[11px] text-slate-400 font-normal">(任意: 賞味期限や特記事項など)</span>
+          </label>
+          <textarea
+            rows={2}
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            placeholder="例: 賞味期限 2026/12/31、開封済み、セールで購入 など"
+            className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all resize-none"
+          />
         </div>
 
         {/* Save to Preset Checkbox */}

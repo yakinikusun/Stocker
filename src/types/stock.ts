@@ -9,6 +9,7 @@ export interface InitialProductData {
   location?: string;
   tags?: string[];
   imageUrl?: string;
+  memo?: string;
 }
 
 export interface Tag {
@@ -36,6 +37,7 @@ export interface Product {
   current_stock: number;
   location: string;
   tags: string[];
+  memo?: string;
   created_at: string;
   updated_at: string;
 }

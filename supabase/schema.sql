@@ -51,9 +51,13 @@ CREATE TABLE IF NOT EXISTS public.products (
   current_stock NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (current_stock >= 0),
   location TEXT NOT NULL DEFAULT '冷蔵庫',
   tags TEXT[] DEFAULT '{}',
+  memo TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- 既存テーブルへの memo カラム追加（マイグレーション用）
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS memo TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_products_jan_code ON public.products(jan_code);
 CREATE INDEX IF NOT EXISTS idx_products_location ON public.products(location);

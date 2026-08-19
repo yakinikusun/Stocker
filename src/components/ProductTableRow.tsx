@@ -32,10 +32,15 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
               <Package className="w-5 h-5" />
             </div>
           )}
-          <div>
-            <span className="font-semibold text-slate-900 block">{product.name}</span>
+          <div className="min-w-0">
+            <span className="font-semibold text-slate-900 block truncate">{product.name}</span>
             {product.jan_code ? (
               <span className="font-mono text-[10px] text-slate-400 block">JAN: {product.jan_code}</span>
+            ) : null}
+            {product.memo ? (
+              <span className="text-[10px] text-slate-500 block truncate max-w-xs italic mt-0.5">
+                {product.memo}
+              </span>
             ) : null}
           </div>
           <button

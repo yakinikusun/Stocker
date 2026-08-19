@@ -649,7 +649,8 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           image_url: newProd.image_url,
           current_stock: newProd.current_stock,
           location: newProd.location || '冷蔵庫',
-          tags: newProd.tags || []
+          tags: newProd.tags || [],
+          memo: newProd.memo || null
         }])
         .select()
         .single();

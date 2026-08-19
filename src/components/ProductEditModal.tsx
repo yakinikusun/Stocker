@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Pencil, FolderKanban, Tag as TagIcon, Upload, Image as ImageIcon, Check, Loader2, ChevronDown } from 'lucide-react';
+import { Pencil, FolderKanban, Tag as TagIcon, Upload, Image as ImageIcon, Check, Loader2, ChevronDown, FileText } from 'lucide-react';
 import { Product } from '../types/stock';
 import { useStock } from '../context/StockContext';
 import { uploadProductImage } from '../lib/supabase';
@@ -22,6 +22,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
   const [janCode, setJanCode] = useState('');
   const [location, setLocation] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [memo, setMemo] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -38,6 +39,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
       setJanCode(product.jan_code || '');
       setLocation(product.location || (locations[0]?.name ?? '冷蔵庫'));
       setSelectedTags(product.tags || []);
+      setMemo(product.memo || '');
       setImagePreview(product.image_url || null);
       setImageFile(null);
       setShowImageControls(false);
@@ -97,6 +99,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
       jan_code: janCode.trim() || undefined,
       location: location || '冷蔵庫',
       tags: selectedTags,
+      memo: memo.trim() || undefined,
       image_url: finalImageUrl
     });
 
@@ -259,6 +262,21 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
               </div>
             </>
           )}
+        </div>
+
+        {/* Memo / Notes Field */}
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+            <FileText className="w-3.5 h-3.5 text-slate-500" />
+            メモ・備考 <span className="text-[11px] text-slate-400 font-normal">(任意: 賞味期限や特記事項など)</span>
+          </label>
+          <textarea
+            rows={2}
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            placeholder="例: 賞味期限 2026/12/31、開封済み、セールで購入 など"
+            className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all resize-none"
+          />
         </div>
 
         {/* JAN Code Field */}
