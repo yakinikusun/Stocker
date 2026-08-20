@@ -1,6 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, X, Package, AlertCircle, Plus, Search, Play, Square, FolderKanban, Sparkles, Loader2, BookmarkPlus } from 'lucide-react';
-import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
+import {
+  Camera,
+  X,
+  Package,
+  AlertCircle,
+  Plus,
+  Search,
+  Play,
+  Square,
+  FolderKanban,
+  Sparkles,
+  Loader2,
+  BookmarkPlus,
+  SwitchCamera
+} from 'lucide-react';
+import { BrowserMultiFormatReader, BrowserCodeReader, IScannerControls } from '@zxing/browser';
 import { useStock } from '../context/StockContext';
 import { Product, Preset, InitialProductData } from '../types/stock';
 import { fetchProductByJanCode, ExternalProductInfo } from '../lib/barcodeLookup';
@@ -25,6 +39,9 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
 
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraFacing, setCameraFacing] = useState<'environment' | 'user'>('environment');
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>(undefined);
   const [scannedJan, setScannedJan] = useState<string | null>(null);
   const [matchedProducts, setMatchedProducts] = useState<Product[]>([]);
   const [matchedPresets, setMatchedPresets] = useState<Preset[]>([]);
@@ -49,7 +66,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     if (isOpen) {
       resetScannerState();
       codeReaderRef.current = new BrowserMultiFormatReader();
-      startCamera();
+      startCamera(cameraFacing, selectedDeviceId);
     } else {
       resetScannerState();
     }
@@ -59,30 +76,98 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     };
   }, [isOpen]);
 
-  const startCamera = async () => {
+  const startCamera = async (
+    facing: 'environment' | 'user' = cameraFacing,
+    deviceId: string | undefined = selectedDeviceId
+  ) => {
     stopCamera();
     setCameraError(null);
     setIsScanning(true);
     isProcessingScanRef.current = false;
 
+    if (!codeReaderRef.current) {
+      codeReaderRef.current = new BrowserMultiFormatReader();
+    }
+
     try {
       if (videoRef.current && codeReaderRef.current) {
-        const controls = await codeReaderRef.current.decodeFromVideoDevice(
-          undefined,
-          videoRef.current,
-          (result) => {
-            if (result) {
-              const text = result.getText();
-              handleScannedCode(text);
+        let controls: IScannerControls;
+
+        if (deviceId) {
+          controls = await codeReaderRef.current.decodeFromVideoDevice(
+            deviceId,
+            videoRef.current,
+            (result) => {
+              if (result) {
+                const text = result.getText();
+                handleScannedCode(text);
+              }
             }
+          );
+        } else {
+          // Attempt with facingMode constraint
+          const constraints: MediaStreamConstraints = {
+            video: {
+              facingMode: facing,
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            }
+          };
+
+          try {
+            controls = await codeReaderRef.current.decodeFromConstraints(
+              constraints,
+              videoRef.current,
+              (result) => {
+                if (result) {
+                  const text = result.getText();
+                  handleScannedCode(text);
+                }
+              }
+            );
+          } catch (constraintErr) {
+            console.warn('decodeFromConstraints with facingMode failed, falling back to default device:', constraintErr);
+            controls = await codeReaderRef.current.decodeFromVideoDevice(
+              undefined,
+              videoRef.current,
+              (result) => {
+                if (result) {
+                  const text = result.getText();
+                  handleScannedCode(text);
+                }
+              }
+            );
           }
-        );
+        }
+
         controlsRef.current = controls;
+
+        // Query available video devices after camera permission is granted
+        try {
+          const devices = await BrowserCodeReader.listVideoInputDevices();
+          setVideoDevices(devices);
+        } catch (e) {
+          console.error('Failed to list video devices:', e);
+        }
       }
     } catch (err: any) {
-      setCameraError('カメラの起動に失敗しました（権限またはHTTPS接続をご確認ください）。');
+      console.error('Camera start error:', err);
+      setCameraError('カメラの起動に失敗しました（カメラ権限または接続をご確認ください）。');
       setIsScanning(false);
     }
+  };
+
+  const handleToggleFacingMode = async () => {
+    const nextFacing = cameraFacing === 'environment' ? 'user' : 'environment';
+    setCameraFacing(nextFacing);
+    setSelectedDeviceId(undefined);
+    await startCamera(nextFacing, undefined);
+  };
+
+  const handleSelectDevice = async (deviceId: string) => {
+    const targetId = deviceId || undefined;
+    setSelectedDeviceId(targetId);
+    await startCamera(cameraFacing, targetId);
   };
 
   const stopCamera = () => {
@@ -209,10 +294,32 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           <div className="relative aspect-video rounded-xl bg-slate-900 overflow-hidden border border-slate-700 flex items-center justify-center">
             <video
               ref={videoRef}
-              className="w-full h-full object-cover"
+              className={`w-full h-full object-cover transition-transform duration-300 ${
+                cameraFacing === 'user' ? 'scale-x-[-1]' : ''
+              }`}
               playsInline
               muted
             />
+
+            {/* Camera Switch Toggle Button */}
+            <div className="absolute top-2 left-2 z-10">
+              <button
+                type="button"
+                onClick={handleToggleFacingMode}
+                title="インカメラ / アウトカメラ切替"
+                className="px-2.5 py-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 text-white text-[11px] font-semibold backdrop-blur-md flex items-center gap-1.5 border border-white/20 shadow-lg active:scale-95 transition-all"
+              >
+                <SwitchCamera className="w-3.5 h-3.5 text-blue-400" />
+                <span>{cameraFacing === 'environment' ? 'インカメラに切替' : 'アウトカメラに切替'}</span>
+              </button>
+            </div>
+
+            {/* Camera Facing Indicator Badge */}
+            <div className="absolute top-2 right-2 z-10 pointer-events-none">
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-black/60 text-white/90 backdrop-blur-sm border border-white/10">
+                {cameraFacing === 'user' ? '👤 インカメラ' : '📷 アウトカメラ'}
+              </span>
+            </div>
 
             {/* Scan Box Overlay */}
             {isScanning && !cameraError && (
@@ -228,26 +335,46 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
             )}
 
             {/* Camera Controls */}
-            <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
+            <div className="absolute bottom-2 right-2 flex items-center gap-1.5 z-10">
               {isScanning ? (
                 <button
                   type="button"
                   onClick={stopCamera}
-                  className="px-2.5 py-1 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white text-[11px] font-semibold backdrop-blur-sm flex items-center gap-1"
+                  className="px-2.5 py-1 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white text-[11px] font-semibold backdrop-blur-sm flex items-center gap-1 shadow-md"
                 >
                   <Square className="w-3 h-3" /> カメラ停止
                 </button>
               ) : (
                 <button
                   type="button"
-                  onClick={startCamera}
-                  className="px-2.5 py-1 rounded-lg bg-blue-600/80 hover:bg-blue-600 text-white text-[11px] font-semibold backdrop-blur-sm flex items-center gap-1"
+                  onClick={() => startCamera(cameraFacing, selectedDeviceId)}
+                  className="px-2.5 py-1 rounded-lg bg-blue-600/80 hover:bg-blue-600 text-white text-[11px] font-semibold backdrop-blur-sm flex items-center gap-1 shadow-md"
                 >
                   <Play className="w-3 h-3" /> 再スキャン
                 </button>
               )}
             </div>
           </div>
+
+          {/* Multiple Video Devices Selector (if more than 1 camera device is available) */}
+          {videoDevices.length > 1 && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-xs">
+              <Camera className="w-4 h-4 text-slate-500 shrink-0" />
+              <span className="font-semibold text-slate-700 shrink-0 text-[11px]">カメラ機器:</span>
+              <select
+                value={selectedDeviceId || ''}
+                onChange={(e) => handleSelectDevice(e.target.value)}
+                className="flex-1 bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-500 cursor-pointer truncate"
+              >
+                <option value="">自動モード ({cameraFacing === 'user' ? 'インカメラ' : 'アウトカメラ'})</option>
+                {videoDevices.map((dev, idx) => (
+                  <option key={dev.deviceId || idx} value={dev.deviceId}>
+                    {dev.label || `カメラデバイス ${idx + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {cameraError && (
             <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium flex items-center gap-2">
