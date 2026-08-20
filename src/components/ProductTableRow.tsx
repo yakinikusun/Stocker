@@ -45,7 +45,7 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
           </div>
           <button
             onClick={() => onSelectProductForEdit(product)}
-            className="p-1.5 rounded-lg  hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors"
+            className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors"
             title="在庫情報編集"
           >
           <Pencil className="w-3.5 h-3.5" />

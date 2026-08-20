@@ -253,7 +253,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
                         type="checkbox"
                         checked={isChecked}
                         onChange={() => toggleTag(t.name)}
-                        className=" w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
                       />
                       <span className="font-medium text-slate-800">#{t.name}</span>
                     </label>
@@ -275,7 +275,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
             maxLength={200}
-            className="maxlength w-full px-3.5 py-2 min-h-[60px] text-xs rounded-xl bg-slate-50 resize-y border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
+            className="w-full px-3.5 py-2 min-h-[60px] text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all resize-y"
           />
         </div>
 
