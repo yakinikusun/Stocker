@@ -28,8 +28,9 @@ export function useStockFilter(products: Product[]) {
         const matchesJan = product.jan_code ? product.jan_code.toLowerCase().includes(query) : false;
         const matchesLocation = product.location.toLowerCase().includes(query);
         const matchesTags = product.tags.some((t) => t.toLowerCase().includes(query));
+        const matchesMemo = product.memo ? product.memo.toLowerCase().includes(query) : false;
 
-        if (!matchesName && !matchesJan && !matchesLocation && !matchesTags) {
+        if (!matchesName && !matchesJan && !matchesLocation && !matchesTags && !matchesMemo) {
           return false;
         }
       }

@@ -84,6 +84,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               </span>
             ))}
           </div>
+
+          {product.memo && (
+            <p className="text-[11px] text-slate-500 line-clamp-2 mt-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200/60 flex items-start gap-1">
+              <span className="whitespace-pre-line break-all">{product.memo}</span>
+            </p>
+          )}
         </div>
       </div>
 

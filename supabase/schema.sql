@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS public.products (
   current_stock NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (current_stock >= 0),
   location TEXT NOT NULL DEFAULT '冷蔵庫',
   tags TEXT[] DEFAULT '{}',
+  memo TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

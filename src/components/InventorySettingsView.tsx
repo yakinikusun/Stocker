@@ -24,7 +24,7 @@ import { uploadProductImage } from '../lib/supabase';
 import { FormModal } from './FormModal';
 
 interface InventorySettingsViewProps {
-  onCallPresetToStock: (preset: Preset) => void;
+  onCallPresetToStock?: (preset: Preset) => void;
 }
 
 export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ onCallPresetToStock }) => {
@@ -59,7 +59,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
   const [isAddTagModalOpen, setIsAddTagModalOpen] = useState(false);
   const [isAddPresetModalOpen, setIsAddPresetModalOpen] = useState(false);
 
-  // Shared FormModal open states (Editing)
+  // Edit states
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [editLocationName, setEditLocationName] = useState('');
 
@@ -580,17 +580,16 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                   <div className="min-w-0">
                     <h4 className="font-semibold text-xs text-slate-800 truncate">{pst.name}</h4>
                     {pst.jan_code && (
-                      <p className="font-mono text-[10px] text-slate-400 mt-1">JAN: {pst.jan_code}</p>
+                      <p className="font-mono text-[10px] text-slate-400 mt-0.5">JAN: {pst.jan_code}</p>
                     )}
                     
-                  
                   <button
                     onClick={() => {
                       setSelectedPresetForCall(pst);
                       setCallLocation(locations[0]?.name || '冷蔵庫');
                       setCallQuantity(1);
                     }}
-                    className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-semibold shadow-sm flex items-center gap-1 transition-all"
+                    className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-semibold shadow-sm flex items-center gap-1 transition-all mt-1"
                     title="場所・個数を指定して在庫に追加"
                   >
                     <Sparkles className="w-3 h-3" /> 在庫に追加
@@ -599,7 +598,6 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                 </div>
 
                 <div className="flex flex-col items-end gap-2 shrink-0">
-                  
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => {
