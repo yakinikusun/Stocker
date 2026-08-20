@@ -118,8 +118,9 @@ Stocker/
   - ログイン完了と同時に `StockContext` の初期データ取得（`fetchAllData`）および Realtime チャンネルが認証済みセッションで即時確立され、画面リロードなしで最新データが全画面に反映されます。
 - **メールアドレス非依存のログインID連携**:
   - Supabase Auth の仕様に合わせ、ログインID（例: `papa`）使用時にシステム内部で `papa@stocker.local` というダミーメールアドレスを全自動生成して認証。外部メール送信サービス（SMTP）不要でスムーズに動作します。
-- **未ログイン保護（Route Guard）**:
-  - 未認証時（`!user || !isAuthenticated`）はアプリのメインコンテンツ、ナビゲーション、各種モーダルを一切レンダリングせず、**全画面で `<LoginView />` のみを固定表示**して他ページへのアクセスを完全に遮断します。
+- **未ログイン保護 ＆ 未認証通信の完全遮断（Lazy Mount Route Guard）**:
+  - 未認証時（`!user || !isAuthenticated`）はアプリのメインコンテンツ、ナビゲーション、各種モーダルを一切レンダリングせず、**全画面で `<LoginView />` のみを固定表示**して他ページへのアクセスを完全に遮断。
+  - さらに、未認証状態では `<StockProvider>` 自体を **DOMツリーに一切マウントしない遅延マウント（Lazy Mount）構造** を採用。ログイン前の画面表示時に Supabase へのデータ取得リクエスト（`GET /rest/v1/products...`）や不要な WebSocket 接続が 1 件も飛ばず、完全な通信サイレント状態を担保。Supabase プロジェクト URL の不用意な露出や Geo-blocking 迂回攻撃のリスクを徹底排除します。
 - **各自のプロファイル ＆ パスワード変更**:
   - ログイン中の各ユーザーは「アカウント設定」画面から、自分自身の**お名前（表示名）**および**パスワード**を安全に変更できます (`supabase.auth.updateUser({ password })`, `profiles` テーブル更新)。
 - **.env による接続固定・自動消去時間設定 ＆ 動作モード切替**:
@@ -205,6 +206,7 @@ Stocker/
 | current_stock | numeric(10,2) | 現在数量 (>= 0, 小数可) |
 | location | text | 保管場所（例: 冷蔵庫） |
 | tags | text[] | 分類タグ配列 |
+| memo | text | メモ・備考（賞味期限・特記事項等、任意） |
 | created_at | timestamptz | 登録日時 (デフォルト: NOW()) |
 | updated_at | timestamptz | 更新日時 (トリガー自動更新) |
 
