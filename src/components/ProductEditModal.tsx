@@ -253,7 +253,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
                         type="checkbox"
                         checked={isChecked}
                         onChange={() => toggleTag(t.name)}
-                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                        className=" w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
                       />
                       <span className="font-medium text-slate-800">#{t.name}</span>
                     </label>
@@ -268,14 +268,14 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
         <div className="space-y-1">
           <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
             <FileText className="w-3.5 h-3.5 text-slate-500" />
-            メモ・備考 <span className="text-[11px] text-slate-400 font-normal">(任意: 賞味期限や特記事項など)</span>
+            メモ・備考
           </label>
           <textarea
             rows={2}
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
-            placeholder="例: 賞味期限 2026/12/31、開封済み、セールで購入 など"
-            className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all resize-none"
+            maxLength={200}
+            className="maxlength w-full px-3.5 py-2 min-h-[60px] text-xs rounded-xl bg-slate-50 resize-y border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
           />
         </div>
 
