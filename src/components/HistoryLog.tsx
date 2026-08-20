@@ -41,8 +41,9 @@ function compressHistories(histories: StockHistory[]): CompressedStockHistory[] 
   const compressed: CompressedStockHistory[] = [];
 
   for (const item of histories) {
+    const cleanAmount = Math.round(item.change_amount * 100) / 100;
     if (compressed.length === 0) {
-      compressed.push({ ...item, op_count: 1 });
+      compressed.push({ ...item, change_amount: cleanAmount, op_count: 1 });
       continue;
     }
 
@@ -56,10 +57,10 @@ function compressHistories(histories: StockHistory[]): CompressedStockHistory[] 
     const isWithinTime = timeDiffMs <= 10 * 60 * 1000; // Within 10 minutes
 
     if (isSameProduct && isSameUser && isWithinTime) {
-      previous.change_amount += item.change_amount;
+      previous.change_amount = Math.round((previous.change_amount + cleanAmount) * 100) / 100;
       previous.op_count = (previous.op_count || 1) + 1;
     } else {
-      compressed.push({ ...item, op_count: 1 });
+      compressed.push({ ...item, change_amount: cleanAmount, op_count: 1 });
     }
   }
 

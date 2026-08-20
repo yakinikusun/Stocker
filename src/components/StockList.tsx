@@ -149,38 +149,54 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
               </button>
 
               {isTagDropdownOpen && (
-                <div className="absolute left-0 top-full mt-1.5 w-48 max-w-[calc(100vw-2rem)] p-2 rounded-xl bg-white border border-slate-200 shadow-xl z-30 space-y-1">
-                  <div className="flex items-center justify-between pb-1 border-b border-slate-100 px-1">
-                    <span className="text-[11px] font-bold text-slate-600">タグで絞り込み</span>
-                    {selectedTagFilters.length > 0 && (
-                      <button
-                        onClick={clearTagFilters}
-                        className="text-[10px] text-rose-600 hover:underline"
-                      >
-                        全解除
-                      </button>
-                    )}
-                  </div>
-                  <div className="max-h-48 overflow-y-auto space-y-0.5">
-                    {tags.map((t) => {
-                      const isChecked = selectedTagFilters.includes(t.name);
-                      return (
-                        <label
-                          key={t.id}
-                          className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs"
+                <>
+                  {/* Transparent Backdrop to close dropdown on tap outside */}
+                  <div
+                    className="fixed inset-0 z-20 cursor-default"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsTagDropdownOpen(false);
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                    }}
+                    onTouchStart={(e) => {
+                      e.stopPropagation();
+                    }}
+                  />
+                  <div className="absolute left-0 top-full mt-1.5 w-48 max-w-[calc(100vw-2rem)] p-2 rounded-xl bg-white border border-slate-200 shadow-xl z-30 space-y-1">
+                    <div className="flex items-center justify-between pb-1 border-b border-slate-100 px-1">
+                      <span className="text-[11px] font-bold text-slate-600">タグで絞り込み</span>
+                      {selectedTagFilters.length > 0 && (
+                        <button
+                          onClick={clearTagFilters}
+                          className="text-[10px] text-rose-600 hover:underline"
                         >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => toggleTagFilter(t.name)}
-                            className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400"
-                          />
-                          <span className="font-medium text-slate-800">#{t.name}</span>
-                        </label>
-                      );
-                    })}
+                          全解除
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-48 overflow-y-auto space-y-0.5">
+                      {tags.map((t) => {
+                        const isChecked = selectedTagFilters.includes(t.name);
+                        return (
+                          <label
+                            key={t.id}
+                            className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => toggleTagFilter(t.name)}
+                              className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400"
+                            />
+                            <span className="font-medium text-slate-800">#{t.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                </>
               )}
             </div>
           )}

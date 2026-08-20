@@ -14,7 +14,8 @@ import {
   Check,
   Loader2,
   Image as ImageIcon,
-  Search
+  Search,
+  GripVertical
 } from 'lucide-react';
 import { useStock } from '../context/StockContext';
 import { useAuth } from '../context/AuthContext';
@@ -23,7 +24,7 @@ import { uploadProductImage } from '../lib/supabase';
 import { FormModal } from './FormModal';
 
 interface InventorySettingsViewProps {
-  onCallPresetToStock: (preset: Preset) => void;
+  onCallPresetToStock?: (preset: Preset) => void;
 }
 
 export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ onCallPresetToStock }) => {
@@ -34,9 +35,11 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
     addLocation,
     updateLocation,
     deleteLocation,
+    reorderLocations,
     addTag,
     updateTag,
     deleteTag,
+    reorderTags,
     addPreset,
     updatePreset,
     deletePreset,
@@ -56,7 +59,7 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
   const [isAddTagModalOpen, setIsAddTagModalOpen] = useState(false);
   const [isAddPresetModalOpen, setIsAddPresetModalOpen] = useState(false);
 
-  // Shared FormModal open states (Editing)
+  // Edit states
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [editLocationName, setEditLocationName] = useState('');
 
@@ -134,6 +137,51 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
     }
   };
 
+  // Drag and Drop States
+  const [draggedLocationIndex, setDraggedLocationIndex] = useState<number | null>(null);
+  const [dragOverLocationIndex, setDragOverLocationIndex] = useState<number | null>(null);
+
+  const [draggedTagIndex, setDraggedTagIndex] = useState<number | null>(null);
+  const [dragOverTagIndex, setDragOverTagIndex] = useState<number | null>(null);
+
+  // Location Drag & Drop Handlers
+  const handleLocationDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedLocationIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', `${index}`);
+  };
+
+  const handleLocationDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverLocationIndex !== index) {
+      setDragOverLocationIndex(index);
+    }
+  };
+
+  const handleLocationDrop = async (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedLocationIndex === null || draggedLocationIndex === dropIndex) {
+      setDraggedLocationIndex(null);
+      setDragOverLocationIndex(null);
+      return;
+    }
+
+    const newLocations = [...locations];
+    const [moved] = newLocations.splice(draggedLocationIndex, 1);
+    newLocations.splice(dropIndex, 0, moved);
+
+    setDraggedLocationIndex(null);
+    setDragOverLocationIndex(null);
+
+    await reorderLocations(newLocations);
+  };
+
+  const handleLocationDragEnd = () => {
+    setDraggedLocationIndex(null);
+    setDragOverLocationIndex(null);
+  };
+
   // Tag Handlers
   const handleAddTagSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,6 +202,44 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
       showTempMessage(`タグを「${editTagName}」に更新しました。`);
       setEditingTag(null);
     }
+  };
+
+  // Tag Drag & Drop Handlers
+  const handleTagDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedTagIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', `${index}`);
+  };
+
+  const handleTagDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverTagIndex !== index) {
+      setDragOverTagIndex(index);
+    }
+  };
+
+  const handleTagDrop = async (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedTagIndex === null || draggedTagIndex === dropIndex) {
+      setDraggedTagIndex(null);
+      setDragOverTagIndex(null);
+      return;
+    }
+
+    const newTags = [...tags];
+    const [moved] = newTags.splice(draggedTagIndex, 1);
+    newTags.splice(dropIndex, 0, moved);
+
+    setDraggedTagIndex(null);
+    setDragOverTagIndex(null);
+
+    await reorderTags(newTags);
+  };
+
+  const handleTagDragEnd = () => {
+    setDraggedTagIndex(null);
+    setDragOverTagIndex(null);
   };
 
   // Preset Handlers
@@ -318,24 +404,44 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
       {/* SubTab 1: Storage Locations */}
       {activeSubTab === 'locations' && (
         <div className="clean-card p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-800">登録済み保管場所一覧</h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+            <div>
+              <h3 className="text-sm font-bold text-slate-800">登録済み保管場所一覧</h3>
+              <p className="text-[11px] text-slate-500">ドラッグ＆ドロップで表示順を自由に並び替えできます。</p>
+            </div>
             <button
               onClick={() => setIsAddLocationModalOpen(true)}
-              className="text-xs text-blue-600 font-semibold hover:underline flex items-center gap-1"
+              className="text-xs text-blue-600 font-semibold hover:underline flex items-center gap-1 self-start sm:self-auto"
             >
               <Plus className="w-3.5 h-3.5" /> 新規追加
             </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {locations.map((loc) => (
+            {locations.map((loc, index) => (
               <div
                 key={loc.id}
-                className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between group"
+                draggable
+                onDragStart={(e) => handleLocationDragStart(e, index)}
+                onDragOver={(e) => handleLocationDragOver(e, index)}
+                onDrop={(e) => handleLocationDrop(e, index)}
+                onDragEnd={handleLocationDragEnd}
+                className={`p-3.5 rounded-xl border flex items-center justify-between group transition-all select-none ${
+                  draggedLocationIndex === index
+                    ? 'opacity-30 border-dashed border-blue-500 bg-blue-50/50 scale-[0.98]'
+                    : dragOverLocationIndex === index
+                    ? 'border-blue-500 ring-2 ring-blue-400 bg-blue-50/80 shadow-md scale-[1.02]'
+                    : 'bg-slate-50 border-slate-200 hover:border-slate-300 hover:shadow-xs'
+                }`}
               >
-                <div className="flex items-center gap-2.5">
-                  <FolderKanban className="w-4 h-4 text-blue-500" />
+                <div className="flex items-center gap-2">
+                  <div
+                    className="cursor-grab active:cursor-grabbing p-0.5 text-slate-300 group-hover:text-slate-500 hover:text-blue-600 transition-colors"
+                    title="ドラッグして並び替え"
+                  >
+                    <GripVertical className="w-4 h-4 shrink-0" />
+                  </div>
+                  <FolderKanban className="w-4 h-4 text-blue-500 shrink-0" />
                   <span className="text-xs font-semibold text-slate-800">{loc.name}</span>
                 </div>
                 <div className="flex items-center gap-1">
@@ -474,17 +580,16 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                   <div className="min-w-0">
                     <h4 className="font-semibold text-xs text-slate-800 truncate">{pst.name}</h4>
                     {pst.jan_code && (
-                      <p className="font-mono text-[10px] text-slate-400 mt-1">JAN: {pst.jan_code}</p>
+                      <p className="font-mono text-[10px] text-slate-400 mt-0.5">JAN: {pst.jan_code}</p>
                     )}
                     
-                  
                   <button
                     onClick={() => {
                       setSelectedPresetForCall(pst);
                       setCallLocation(locations[0]?.name || '冷蔵庫');
                       setCallQuantity(1);
                     }}
-                    className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-semibold shadow-sm flex items-center gap-1 transition-all"
+                    className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-semibold shadow-sm flex items-center gap-1 transition-all mt-1"
                     title="場所・個数を指定して在庫に追加"
                   >
                     <Sparkles className="w-3 h-3" /> 在庫に追加
@@ -493,7 +598,6 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
                 </div>
 
                 <div className="flex flex-col items-end gap-2 shrink-0">
-                  
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => {
@@ -532,48 +636,68 @@ export const InventorySettingsView: React.FC<InventorySettingsViewProps> = ({ on
       {/* SubTab 3: Tags */}
       {activeSubTab === 'tags' && (
         <div className="clean-card p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-800">登録済みタグ一覧</h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+            <div>
+              <h3 className="text-sm font-bold text-slate-800">登録済みタグ一覧</h3>
+              <p className="text-[11px] text-slate-500">ドラッグ＆ドロップで表示順を自由に並び替えできます。</p>
+            </div>
             <button
               onClick={() => setIsAddTagModalOpen(true)}
-              className="text-xs text-amber-600 font-semibold hover:underline flex items-center gap-1"
+              className="text-xs text-amber-600 font-semibold hover:underline flex items-center gap-1 self-start sm:self-auto"
             >
               <Plus className="w-3.5 h-3.5" /> 新規追加
             </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {tags.map((t) => (
+            {tags.map((t, index) => (
               <div
                 key={t.id}
-                className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between group"
+                draggable
+                onDragStart={(e) => handleTagDragStart(e, index)}
+                onDragOver={(e) => handleTagDragOver(e, index)}
+                onDrop={(e) => handleTagDrop(e, index)}
+                onDragEnd={handleTagDragEnd}
+                className={`p-3.5 rounded-xl border flex items-center justify-between group transition-all select-none ${
+                  draggedTagIndex === index
+                    ? 'opacity-30 border-dashed border-amber-500 bg-amber-50/50 scale-[0.98]'
+                    : dragOverTagIndex === index
+                    ? 'border-amber-500 ring-2 ring-amber-400 bg-amber-50/80 shadow-md scale-[1.02]'
+                    : 'bg-slate-50 border-slate-200 hover:border-slate-300 hover:shadow-xs'
+                }`}
               >
-                <div className="flex items-center gap-2.5">
-                  <TagIcon className="w-4 h-4 text-amber-500" />
+                <div className="flex items-center gap-2">
+                  <div
+                    className="cursor-grab active:cursor-grabbing p-0.5 text-slate-300 group-hover:text-slate-500 hover:text-amber-600 transition-colors"
+                    title="ドラッグして並び替え"
+                  >
+                    <GripVertical className="w-4 h-4 shrink-0" />
+                  </div>
+                  <TagIcon className="w-4 h-4 text-amber-500 shrink-0" />
                   <span className="text-xs font-semibold text-slate-800">{t.name}</span>
                 </div>
                 <div className="flex items-center gap-1">
-                <button
-                  onClick={() => {
-                    setEditingTag(t);
-                    setEditTagName(t.name);
-                  }}
-                  className="text-slate-400 hover:text-amber-600 transition-colors p-1"
-                  title="編集 (モーダル表示)"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => {
-                    if (confirm(`タグ「${t.name}」を削除しますか？`)) {
-                      deleteTag(t.id);
-                    }
-                  }}
-                  className="text-slate-400 hover:text-rose-600 transition-colors p-1"
-                  title="削除"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                  <button
+                    onClick={() => {
+                      setEditingTag(t);
+                      setEditTagName(t.name);
+                    }}
+                    className="text-slate-400 hover:text-amber-600 transition-colors p-1"
+                    title="編集 (モーダル表示)"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm(`タグ「${t.name}」を削除しますか？`)) {
+                        deleteTag(t.id);
+                      }
+                    }}
+                    className="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                    title="削除"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             ))}

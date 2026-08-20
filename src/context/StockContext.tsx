@@ -44,11 +44,13 @@ interface StockContextType {
   addLocation: (name: string) => Promise<boolean>;
   updateLocation: (id: string, name: string) => Promise<boolean>;
   deleteLocation: (id: string) => Promise<boolean>;
+  reorderLocations: (newOrderedLocations: Location[]) => Promise<boolean>;
 
   // Tags CRUD & Edit
   addTag: (name: string) => Promise<boolean>;
   updateTag: (id: string, name: string) => Promise<boolean>;
   deleteTag: (id: string) => Promise<boolean>;
+  reorderTags: (newOrderedTags: Tag[]) => Promise<boolean>;
 
   // Presets CRUD & Edit (Unlinked location)
   addPreset: (preset: Omit<Preset, 'id' | 'created_at' | 'updated_at'>) => Promise<boolean>;
@@ -99,21 +101,27 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsLoading(true);
     const client = getSupabaseClient();
 
-    if (client && isSupabaseActive) {
+    if (client && isSupabaseActive && user) {
       try {
         const [
-          { data: prods },
-          { data: hists },
-          { data: locs },
-          { data: tgs },
-          { data: psts }
+          { data: prods, error: prodErr },
+          { data: hists, error: histErr },
+          { data: locs, error: locErr },
+          { data: tgs, error: tgErr },
+          { data: psts, error: pstErr }
         ] = await Promise.all([
           client.from('products').select('*').order('updated_at', { ascending: false }),
-          client.from('stock_history').select('*, products(name, jan_code, location), profiles(email, name)').order('created_at', { ascending: false }),
-          client.from('locations').select('*').order('name'),
-          client.from('tags').select('*').order('name'),
+          client.from('stock_history').select('*').order('created_at', { ascending: false }),
+          client.from('locations').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: true }),
+          client.from('tags').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: true }),
           client.from('presets').select('*').order('name')
         ]);
+
+        if (prodErr) console.error('Error fetching products from Supabase:', prodErr);
+        if (histErr) console.error('Error fetching stock_history from Supabase:', histErr);
+        if (locErr) console.error('Error fetching locations from Supabase:', locErr);
+        if (tgErr) console.error('Error fetching tags from Supabase:', tgErr);
+        if (pstErr) console.error('Error fetching presets from Supabase:', pstErr);
 
         if (prods) setProducts(prods as Product[]);
         if (locs) setLocations(locs as Location[]);
@@ -124,13 +132,13 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             id: h.id,
             product_id: h.product_id,
             user_id: h.user_id,
-            change_amount: h.change_amount,
+            change_amount: Number(h.change_amount),
             created_at: h.created_at,
-            product_name: h.product_name || h.products?.name || '在庫',
-            jan_code: h.jan_code ?? h.products?.jan_code ?? '',
-            location: h.location || h.products?.location || '冷蔵庫',
-            user_email: h.profiles?.email,
-            user_name: h.profiles?.name
+            product_name: h.product_name || '在庫',
+            jan_code: h.jan_code ?? '',
+            location: h.location || '冷蔵庫',
+            user_email: h.user_email || undefined,
+            user_name: h.user_name || undefined
           }));
           setHistories(formatted);
         }
@@ -150,7 +158,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setPresets(loadLocalPresets());
     }
     setIsLoading(false);
-  }, [isSupabaseActive]);
+  }, [isSupabaseActive, user?.id]);
 
   useEffect(() => {
     fetchAllData();
@@ -159,9 +167,9 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Realtime Supabase Subscription
   useEffect(() => {
     const client = getSupabaseClient();
-    if (client && isSupabaseActive) {
+    if (client && isSupabaseActive && user) {
       const channel = client
-        .channel('public-stock-changes-v10')
+        .channel(`public-stock-changes-${user.id}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchAllData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_history' }, fetchAllData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, fetchAllData)
@@ -173,7 +181,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         client.removeChannel(channel);
       };
     }
-  }, [isSupabaseActive, fetchAllData]);
+  }, [isSupabaseActive, user?.id, fetchAllData]);
 
   const getProductByJanCode = (janCode: string) => {
     if (!janCode.trim()) return undefined;
@@ -197,19 +205,41 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return false;
     }
 
+    const nextSortOrder = locations.length;
     const client = getSupabaseClient();
     if (client && isSupabaseActive) {
-      const { error } = await client.from('locations').insert([{ name: cleanName }]);
+      const { error } = await client.from('locations').insert([{ name: cleanName, sort_order: nextSortOrder }]);
       if (error) { alert(`保管場所追加エラー: ${error.message}`); return false; }
       await fetchAllData();
       return true;
     } else {
-      const newLoc: Location = { id: `loc-${Date.now()}`, name: cleanName };
+      const newLoc: Location = { id: `loc-${Date.now()}`, name: cleanName, sort_order: nextSortOrder };
       const updated = [...locations, newLoc];
       setLocations(updated);
       saveLocalLocations(updated);
       return true;
     }
+  };
+
+  const reorderLocations = async (newOrderedLocations: Location[]): Promise<boolean> => {
+    const withOrder = newOrderedLocations.map((loc, idx) => ({ ...loc, sort_order: idx }));
+    setLocations(withOrder);
+    saveLocalLocations(withOrder);
+
+    const client = getSupabaseClient();
+    if (client && isSupabaseActive) {
+      try {
+        const updates = withOrder.map(loc =>
+          client.from('locations').update({ sort_order: loc.sort_order }).eq('id', loc.id)
+        );
+        await Promise.all(updates);
+        return true;
+      } catch (err: any) {
+        console.error('保管場所の並び替え更新エラー:', err);
+        return false;
+      }
+    }
+    return true;
   };
 
   const updateLocation = async (id: string, newName: string): Promise<boolean> => {
@@ -341,19 +371,41 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return false;
     }
 
+    const nextSortOrder = tags.length;
     const client = getSupabaseClient();
     if (client && isSupabaseActive) {
-      const { error } = await client.from('tags').insert([{ name: cleanName }]);
+      const { error } = await client.from('tags').insert([{ name: cleanName, sort_order: nextSortOrder }]);
       if (error) { alert(`タグ追加エラー: ${error.message}`); return false; }
       await fetchAllData();
       return true;
     } else {
-      const newTag: Tag = { id: `tag-${Date.now()}`, name: cleanName };
+      const newTag: Tag = { id: `tag-${Date.now()}`, name: cleanName, sort_order: nextSortOrder };
       const updated = [...tags, newTag];
       setTags(updated);
       saveLocalTags(updated);
       return true;
     }
+  };
+
+  const reorderTags = async (newOrderedTags: Tag[]): Promise<boolean> => {
+    const withOrder = newOrderedTags.map((tag, idx) => ({ ...tag, sort_order: idx }));
+    setTags(withOrder);
+    saveLocalTags(withOrder);
+
+    const client = getSupabaseClient();
+    if (client && isSupabaseActive) {
+      try {
+        const updates = withOrder.map(tag =>
+          client.from('tags').update({ sort_order: tag.sort_order }).eq('id', tag.id)
+        );
+        await Promise.all(updates);
+        return true;
+      } catch (err: any) {
+        console.error('タグの並び替え更新エラー:', err);
+        return false;
+      }
+    }
+    return true;
   };
 
   const updateTag = async (id: string, name: string): Promise<boolean> => {
@@ -597,7 +649,8 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           image_url: newProd.image_url,
           current_stock: newProd.current_stock,
           location: newProd.location || '冷蔵庫',
-          tags: newProd.tags || []
+          tags: newProd.tags || [],
+          memo: newProd.memo || null
         }])
         .select()
         .single();
@@ -744,7 +797,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (isCompressible) {
         const updatedLatest: StockHistory = {
           ...latestLog,
-          change_amount: latestLog.change_amount + actualChange,
+          change_amount: Math.round((latestLog.change_amount + actualChange) * 100) / 100,
           created_at: now
         };
         updatedHistories = [updatedLatest, ...histories.slice(1)];
@@ -881,9 +934,11 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addLocation,
         updateLocation,
         deleteLocation,
+        reorderLocations,
         addTag,
         updateTag,
         deleteTag,
+        reorderTags,
         addPreset,
         updatePreset,
         deletePreset,

@@ -1,19 +1,19 @@
 import { Product, StockHistory, UserProfile, Location, Tag, Preset } from '../types/stock';
 
 export const INITIAL_LOCATIONS: Location[] = [
-  { id: 'loc-1', name: '冷蔵庫' },
-  { id: 'loc-2', name: '冷凍庫' },
-  { id: 'loc-3', name: '野菜室' },
+  { id: 'loc-1', name: '冷蔵庫', sort_order: 0 },
+  { id: 'loc-2', name: '冷凍庫', sort_order: 1 },
+  { id: 'loc-3', name: '野菜室', sort_order: 2 },
 ];
 
 export const INITIAL_TAGS: Tag[] = [
-  { id: 'tag-1', name: '飲料' },
-  { id: 'tag-2', name: '調味料' },
-  { id: 'tag-3', name: '乳製品' },
-  { id: 'tag-4', name: '冷凍食品' },
-  { id: 'tag-5', name: '生鮮食品' },
-  { id: 'tag-6', name: 'お菓子' },
-  { id: 'tag-7', name: '即席食品' }
+  { id: 'tag-1', name: '飲料', sort_order: 0 },
+  { id: 'tag-2', name: '調味料', sort_order: 1 },
+  { id: 'tag-3', name: '乳製品', sort_order: 2 },
+  { id: 'tag-4', name: '冷凍食品', sort_order: 3 },
+  { id: 'tag-5', name: '生鮮食品', sort_order: 4 },
+  { id: 'tag-6', name: 'お菓子', sort_order: 5 },
+  { id: 'tag-7', name: '即席食品', sort_order: 6 }
 ];
 
 export const INITIAL_PRESETS: Preset[] = [
@@ -69,12 +69,12 @@ export const MOCK_USERS: UserProfile[] = [
     password: 'admin'
   },
   {
-    id: 'usr-member-002',
-    login_id: 'staff',
-    email: 'staff@stocker.local',
-    name: 'スタッフ 花子',
+    id: 'usr-member-001',
+    login_id: 'hanako',
+    email: 'hanako@stocker.local',
+    name: 'メンバー 花子',
     role: 'member',
-    password: 'staff'
+    password: 'user'
   }
 ];
 
@@ -87,6 +87,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     current_stock: 12,
     location: '野菜室',
     tags: ['お菓子'],
+    memo: '未開封。おやつ用',
     created_at: new Date(Date.now() - 86400000 * 10).toISOString(),
     updated_at: new Date(Date.now() - 3600000 * 2).toISOString()
   },
@@ -109,6 +110,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     current_stock: 2,
     location: '調味料ラック',
     tags: ['調味料'],
+    memo: '開封済み。残量少なめ',
     created_at: new Date(Date.now() - 86400000 * 8).toISOString(),
     updated_at: new Date(Date.now() - 86400000 * 1).toISOString()
   },

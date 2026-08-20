@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Plus, Package, Upload, Image as ImageIcon, BookmarkPlus, Tag as TagIcon, FolderKanban, Loader2, ChevronDown, Lock, RotateCcw, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Camera, Plus, Package, Upload, Image as ImageIcon, BookmarkPlus, Tag as TagIcon, FolderKanban, Loader2, ChevronDown, Lock, RotateCcw, Sparkles, FileText } from 'lucide-react';
 import { useStock } from '../context/StockContext';
 import { uploadProductImage } from '../lib/supabase';
 import { fetchProductByJanCode } from '../lib/barcodeLookup';
@@ -21,13 +21,22 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   initialData,
   onTriggerScanner
 }) => {
-  const { addProduct, addPreset, adjustStock, getProductsByJanCode, locations, tags, presets, products } = useStock();
+  const { addProduct, addPreset, adjustStock, getProductsByJanCode, locations, tags, presets, products, locationFilter } = useStock();
+
+  // Helper to determine the default location based on currently active location filter
+  const getDefaultLocation = useCallback(() => {
+    if (locationFilter && locationFilter !== 'all' && locations.some((l) => l.name === locationFilter)) {
+      return locationFilter;
+    }
+    return locations.length > 0 ? locations[0].name : '冷蔵庫';
+  }, [locationFilter, locations]);
 
   const [janCode, setJanCode] = useState('');
   const [name, setName] = useState('');
   const [currentStock, setCurrentStock] = useState<number>(1);
-  const [location, setLocation] = useState<string>('冷蔵庫');
+  const [location, setLocation] = useState<string>(getDefaultLocation);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [memo, setMemo] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -72,21 +81,23 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const lastFetchedJanRef = useRef<string>('');
 
   // Clear all form inputs
-  const handleClearForm = () => {
+  const handleClearForm = useCallback(() => {
     setName('');
     setJanCode('');
     setCurrentStock(1);
+    setLocation(getDefaultLocation());
     setImageUrl('');
     setImageFile(null);
     setImagePreview(null);
     setSelectedTags([]);
+    setMemo('');
     setSaveAsPreset(false);
     setShowImageControls(false);
     setJanFetchedSource(null);
     setIsFetchingJan(false);
     lastFetchedJanRef.current = '';
     setError(null);
-  };
+  }, [getDefaultLocation]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -94,15 +105,20 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     } else if (!initialJanCode) {
       handleClearForm();
     }
-  }, [isOpen, initialJanCode]);
+  }, [isOpen, initialJanCode, handleClearForm]);
 
   useEffect(() => {
     if (initialJanCode) {
       setJanCode(initialJanCode);
       if (initialData) {
         if (initialData.name !== undefined) setName(initialData.name);
-        if (initialData.location !== undefined) setLocation(initialData.location);
+        if (initialData.location !== undefined) {
+          setLocation(initialData.location);
+        } else {
+          setLocation(getDefaultLocation());
+        }
         if (initialData.tags !== undefined) setSelectedTags(initialData.tags);
+        if (initialData.memo !== undefined) setMemo(initialData.memo);
         if (initialData.imageUrl !== undefined) {
           setImagePreview(initialData.imageUrl);
           setImageUrl(initialData.imageUrl);
@@ -110,21 +126,28 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       } else {
         const matches = getProductsByJanCode(initialJanCode);
         if (matches.length > 0) {
-          setName(matches[0].name);
-          setLocation(matches[0].location);
-          setSelectedTags(matches[0].tags);
-          if (matches[0].image_url) setImagePreview(matches[0].image_url);
+          // If a specific location is filtered and a match exists in that location, prioritize it
+          const matchInFilter = locationFilter !== 'all' ? matches.find(m => m.location === locationFilter) : null;
+          const targetMatch = matchInFilter || matches[0];
+          setName(targetMatch.name);
+          setLocation(targetMatch.location);
+          setSelectedTags(targetMatch.tags);
+          if (targetMatch.memo) setMemo(targetMatch.memo);
+          if (targetMatch.image_url) setImagePreview(targetMatch.image_url);
         } else {
           const matchedPreset = presets.find(p => p.jan_code && p.jan_code.trim() === initialJanCode.trim());
           if (matchedPreset) {
             setName(matchedPreset.name);
+            setLocation(getDefaultLocation());
             if (matchedPreset.tags) setSelectedTags(matchedPreset.tags);
             if (matchedPreset.image_url) setImagePreview(matchedPreset.image_url);
+          } else {
+            setLocation(getDefaultLocation());
           }
         }
       }
     }
-  }, [initialJanCode, initialData, presets]);
+  }, [initialJanCode, initialData, presets, getDefaultLocation, locationFilter, getProductsByJanCode]);
 
   // Open Food Facts Barcode Lookup with Synchronous Ref Guard
   useEffect(() => {
@@ -191,9 +214,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
   useEffect(() => {
     if (locations.length > 0 && !location) {
-      setLocation(locations[0].name);
+      setLocation(getDefaultLocation());
     }
-  }, [locations]);
+  }, [locations, getDefaultLocation, location]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -292,6 +315,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       current_stock: Math.max(0, currentStock),
       location: location || '冷蔵庫',
       tags: selectedTags,
+      memo: memo.trim() || undefined,
       image_url: finalImageUrl
     });
 
@@ -578,28 +602,59 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               </button>
 
               {isTagDropdownOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1 z-20 p-2 rounded-xl bg-white border border-slate-200 shadow-xl max-h-48 overflow-y-auto space-y-1">
-                  {tags.map((t) => {
-                    const isChecked = selectedTags.includes(t.name);
-                    return (
-                      <label
-                        key={t.id}
-                        className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer text-xs"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleTag(t.name)}
-                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="font-medium text-slate-800">#{t.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
+                <>
+                  {/* Transparent Backdrop to close dropdown without closing modal */}
+                  <div
+                    className="fixed inset-0 z-10 cursor-default"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsTagDropdownOpen(false);
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                    }}
+                    onTouchStart={(e) => {
+                      e.stopPropagation();
+                    }}
+                  />
+                  <div className="absolute top-full left-0 right-0 mt-1 z-20 p-2 rounded-xl bg-white border border-slate-200 shadow-xl max-h-48 overflow-y-auto space-y-1">
+                    {tags.map((t) => {
+                      const isChecked = selectedTags.includes(t.name);
+                      return (
+                        <label
+                          key={t.id}
+                          className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer text-xs"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleTag(t.name)}
+                            className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="font-medium text-slate-800">#{t.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </>
           )}
+        </div>
+
+        {/* Memo / Notes Field */}
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+            <FileText className="w-3.5 h-3.5 text-slate-500" />
+            メモ・備考
+          </label>
+          <textarea
+            rows={2}
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            maxLength={200}
+            className="w-full px-3.5 py-2 min-h-[60px] text-xs rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all resize-y"
+          />
         </div>
 
         {/* Save to Preset Checkbox */}
