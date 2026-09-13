@@ -52,24 +52,12 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
         </button>
         </div>
       </td>
-      <td className="p-3.5">
-        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 flex w-max">
-          {product.location}
-        </span>
-      </td>
-      <td className="p-3.5">
-        {isOutOfStock ? (
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1 w-max">
-            在庫なし
-          </span>
-        ) : (
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1 w-max">
-            在庫あり ({product.current_stock})
-          </span>
-        )}
-      </td>
       <td className="p-3.5 text-right font-mono font-bold text-sm text-slate-900">
-        {product.current_stock}
+        {isOutOfStock ? (
+          <span className="text-rose-600">0</span>
+        ) : (
+          product.current_stock
+        )}
       </td>
       <td className="p-3.5">
         <div className="flex items-center justify-center gap-1.5">
@@ -95,6 +83,11 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
             <Plus className="w-3.5 h-3.5" />
           </button>
         </div>
+      </td>
+      <td className="p-3.5">
+        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 flex w-max">
+          {product.location}
+        </span>
       </td>
     </tr>
   );
