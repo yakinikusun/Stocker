@@ -38,7 +38,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
 
   type StockSortOption = 'created_desc' | 'created_asc' | 'updated_desc' | 'updated_asc' | 'name_asc' | 'name_desc' | 'stock_desc' | 'stock_asc';
   const [stockSort, setStockSort] = useState<StockSortOption>('updated_desc');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
   const [selectedProductForAdjust, setSelectedProductForAdjust] = useState<Product | null>(null);
   const [selectedProductForEdit, setSelectedProductForEdit] = useState<Product | null>(null);
   const [cleanupMessage, setCleanupMessage] = useState<string | null>(null);
@@ -356,10 +356,9 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
               <thead className="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
                 <tr>
                   <th className="p-3.5">在庫情報</th>
-                  <th className="p-3.5">保管場所</th>
-                  <th className="p-3.5">ステータス</th>
                   <th className="p-3.5 text-right">数量</th>
                   <th className="p-3.5 text-center">操作</th>
+                  <th className="p-3.5">保管場所</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
