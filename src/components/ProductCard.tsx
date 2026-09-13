@@ -4,7 +4,6 @@ import { Product } from '../types/stock';
 
 interface ProductCardProps {
   product: Product;
-  isAdmin: boolean;
   onAdjustStock: (productId: string, amount: number) => void;
   onSelectProductForAdjust: (product: Product) => void;
   onSelectProductForEdit: (product: Product) => void;
@@ -13,7 +12,6 @@ interface ProductCardProps {
 
 export const ProductCard: React.FC<ProductCardProps> = ({
   product,
-  isAdmin,
   onAdjustStock,
   onSelectProductForAdjust,
   onSelectProductForEdit,

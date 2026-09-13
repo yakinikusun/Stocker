@@ -1,13 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Plus, Package, LayoutGrid, List, RotateCcw, FolderKanban, Tag as TagIcon, Sparkles, Trash2, X, ChevronDown, Check, Camera } from 'lucide-react';
+import { Search, Plus, Package, LayoutGrid, List, RotateCcw, FolderKanban, Tag as TagIcon, ChevronDown, Camera } from 'lucide-react';
 import { useStock } from '../context/StockContext';
-import { useAuth } from '../context/AuthContext';
 import { Product } from '../types/stock';
 import { StockAdjustModal } from './StockAdjustModal';
 import { ProductEditModal } from './ProductEditModal';
 import { ProductCard } from './ProductCard';
 import { ProductTableRow } from './ProductTableRow';
-import { getZeroStockCleanupHours } from '../constants';
 
 interface StockListProps {
   onOpenAddModal: () => void;
@@ -29,20 +27,16 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
     locations,
     tags,
     queueStockAdjustment,
-    pendingStockChanges,
     deleteProduct,
-    cleanUpZeroStockProducts,
     resetToDefaultDemoData,
     products
   } = useStock();
-  const { user } = useAuth();
 
   type StockSortOption = 'created_desc' | 'created_asc' | 'updated_desc' | 'updated_asc' | 'name_asc' | 'name_desc' | 'stock_desc' | 'stock_asc';
   const [stockSort, setStockSort] = useState<StockSortOption>('updated_desc');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
   const [selectedProductForAdjust, setSelectedProductForAdjust] = useState<Product | null>(null);
   const [selectedProductForEdit, setSelectedProductForEdit] = useState<Product | null>(null);
-  const [cleanupMessage, setCleanupMessage] = useState<string | null>(null);
   const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
 
   const tagDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -87,19 +81,19 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
       deleteProduct(productId);
     }
   };
+  // デバッグ用の手動在庫整理ボタン（開発環境のみ）
+  // const handleRunCleanup = async () => {
+  //   const hours = getZeroStockCleanupHours();
+  //   const deletedCount = await cleanUpZeroStockProducts(hours);
+  //   if (deletedCount > 0) {
+  //     setCleanupMessage(`${hours}時間以上在庫が0の在庫 ${deletedCount} 件を自動削除しました。`);
+  //   } else {
+  //     setCleanupMessage(`${hours}時間以上在庫が0の在庫は存在しません。`);
+  //   }
+  //   setTimeout(() => setCleanupMessage(null), 4000);
+  // };
 
-  const handleRunCleanup = async () => {
-    const hours = getZeroStockCleanupHours();
-    const deletedCount = await cleanUpZeroStockProducts(hours);
-    if (deletedCount > 0) {
-      setCleanupMessage(`${hours}時間以上在庫が0の在庫 ${deletedCount} 件を自動削除しました。`);
-    } else {
-      setCleanupMessage(`${hours}時間以上在庫が0の在庫は存在しません。`);
-    }
-    setTimeout(() => setCleanupMessage(null), 4000);
-  };
-
-  const zeroStockCount = products.filter(p => p.current_stock === 0).length;
+  // const zeroStockCount = products.filter(p => p.current_stock === 0).length;
 
   return (
     <div className="space-y-4">
@@ -311,12 +305,6 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
         })}
       </div>
 
-      {cleanupMessage && (
-        <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs font-medium flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
-          <span>{cleanupMessage}</span>
-        </div>
-      )}
       {/* Main List Display */}
       {sortedFilteredProducts.length === 0 ? (
         <div className="p-12 text-center rounded-xl clean-card space-y-3">
@@ -340,7 +328,6 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
             <ProductCard
               key={p.id}
               product={p}
-              isAdmin={user?.role === 'admin'}
               onAdjustStock={queueStockAdjustment}
               onSelectProductForAdjust={setSelectedProductForAdjust}
               onSelectProductForEdit={setSelectedProductForEdit}
