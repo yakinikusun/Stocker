@@ -80,13 +80,16 @@ npm install
 cp .env.example .env
 ```
 
-`.env` 内にお使いの Supabase URL、Anon Key、および 0件在庫の自動消去時間を設定します：
+`.env` 内にお使いの Supabase URL、Anon Key、0件在庫の自動消去時間、および一覧の在庫変更を自動確定する待ち時間を設定します：
 
 ```env
 VITE_SUPABASE_URL=https://your-supabase-project.supabase.co
 VITE_SUPABASE_KEY=your-supabase-anon-key
-VITE_ZERO_STOCK_CLEANUP_HOURS=24
+VITE_ZERO_STOCK_CLEANUP_HOURS=168
+VITE_PENDING_STOCK_COMMIT_DELAY_MS=2500
 ```
+
+`VITE_ZERO_STOCK_CLEANUP_HOURS` は時間単位、`VITE_PENDING_STOCK_COMMIT_DELAY_MS` はミリ秒単位です。
 
 ### 3. 開発サーバーの起動
 
