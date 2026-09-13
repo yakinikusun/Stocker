@@ -28,7 +28,8 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
     clearTagFilters,
     locations,
     tags,
-    adjustStock,
+    queueStockAdjustment,
+    pendingStockChanges,
     deleteProduct,
     cleanUpZeroStockProducts,
     resetToDefaultDemoData,
@@ -316,7 +317,6 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
           <span>{cleanupMessage}</span>
         </div>
       )}
-
       {/* Main List Display */}
       {sortedFilteredProducts.length === 0 ? (
         <div className="p-12 text-center rounded-xl clean-card space-y-3">
@@ -341,7 +341,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
               key={p.id}
               product={p}
               isAdmin={user?.role === 'admin'}
-              onAdjustStock={adjustStock}
+              onAdjustStock={queueStockAdjustment}
               onSelectProductForAdjust={setSelectedProductForAdjust}
               onSelectProductForEdit={setSelectedProductForEdit}
               onDeleteProduct={handleDelete}
@@ -366,7 +366,7 @@ export const StockList: React.FC<StockListProps> = ({ onOpenAddModal, onOpenScan
                   <ProductTableRow
                     key={p.id}
                     product={p}
-                    onAdjustStock={adjustStock}
+                    onAdjustStock={queueStockAdjustment}
                     onSelectProductForAdjust={setSelectedProductForAdjust}
                     onSelectProductForEdit={setSelectedProductForEdit}
                   />
