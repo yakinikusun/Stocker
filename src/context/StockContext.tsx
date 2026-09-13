@@ -19,8 +19,11 @@ import {
 import { useAuth } from './AuthContext';
 import { getZeroStockCleanupHours } from '../constants';
 
+const PENDING_STOCK_COMMIT_DELAY_MS = import.meta.env.VITE_PENDING_STOCK_COMMIT_DELAY_MS ?? 2500;
+
 interface StockContextType {
   products: Product[];
+  pendingStockChanges: Record<string, number>;
   histories: StockHistory[];
   locations: Location[];
   tags: Tag[];
@@ -62,6 +65,7 @@ interface StockContextType {
   addProduct: (newProd: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => Promise<Product | null>;
   updateProduct: (id: string, updatedFields: Partial<Product>) => Promise<boolean>;
   adjustStock: (productId: string, changeAmount: number) => Promise<boolean>;
+  queueStockAdjustment: (productId: string, changeAmount: number) => boolean;
   deleteProduct: (productId: string) => Promise<boolean>;
   getProductByJanCode: (janCode: string) => Product | undefined;
   getProductsByJanCode: (janCode: string) => Product[];
@@ -75,6 +79,7 @@ const StockContext = createContext<StockContextType | undefined>(undefined);
 export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isSupabaseActive } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
+  const [pendingStockChanges, setPendingStockChanges] = useState<Record<string, number>>({});
   const [histories, setHistories] = useState<StockHistory[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -736,6 +741,113 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const queueStockAdjustment = (productId: string, changeAmount: number): boolean => {
+    const targetProduct = products.find((p) => p.id === productId);
+    if (!targetProduct) return false;
+
+    const roundedChange = Math.round(changeAmount * 100) / 100;
+    const queuedChange = pendingStockChanges[productId] || 0;
+    const actualChange = roundedChange < 0
+      ? Math.max(-targetProduct.current_stock, roundedChange)
+      : roundedChange;
+    if (actualChange === 0) return false;
+
+    const nextStock = Math.max(0, Math.round((targetProduct.current_stock + actualChange) * 100) / 100);
+    const nextChanges = queuedChange + actualChange;
+    setProducts((currentProducts) => currentProducts.map((product) =>
+      product.id === productId ? { ...product, current_stock: nextStock } : product
+    ));
+    setPendingStockChanges((currentChanges) => {
+      const updatedChanges = { ...currentChanges };
+      if (nextChanges === 0) {
+        delete updatedChanges[productId];
+      } else {
+        updatedChanges[productId] = nextChanges;
+      }
+      return updatedChanges;
+    });
+    return true;
+  };
+
+  const commitPendingStockChanges = async (): Promise<boolean> => {
+    const changes = Object.entries(pendingStockChanges).filter(([, amount]) => amount !== 0);
+    if (changes.length === 0) return true;
+
+    const client = getSupabaseClient();
+    const now = new Date().toISOString();
+    const currentUserId = user?.id || 'usr-guest';
+
+    if (client && isSupabaseActive) {
+      const results = await Promise.all(changes.map(async ([productId, changeAmount]) => {
+        const targetProduct = products.find((product) => product.id === productId);
+        if (!targetProduct) return false;
+
+        const { error: updateErr } = await client
+          .from('products')
+          .update({ current_stock: targetProduct.current_stock, updated_at: now })
+          .eq('id', productId);
+        if (updateErr) return false;
+
+        const { error: historyErr } = await client.from('stock_history').insert([{
+          product_id: productId,
+          user_id: user?.id || null,
+          change_amount: changeAmount,
+          product_name: targetProduct.name,
+          jan_code: targetProduct.jan_code || null,
+          location: targetProduct.location,
+          user_email: user?.email || null,
+          user_name: user?.name || null
+        }]);
+        return !historyErr;
+      }));
+
+      if (results.some((result) => !result)) {
+        alert('一括更新中にエラーが発生しました。');
+        await fetchAllData();
+        return false;
+      }
+      setPendingStockChanges({});
+      await fetchAllData();
+      return true;
+    }
+
+    const updatedProducts = products.map((product) => {
+      const changeAmount = pendingStockChanges[product.id] || 0;
+      return changeAmount === 0 ? product : { ...product, updated_at: now };
+    });
+    const newHistories = changes.map(([productId, changeAmount], index) => {
+      const targetProduct = products.find((product) => product.id === productId)!;
+      return {
+        id: `hist-${Date.now()}-${index}`,
+        product_id: productId,
+        user_id: currentUserId,
+        change_amount: changeAmount,
+        created_at: now,
+        product_name: targetProduct.name,
+        jan_code: targetProduct.jan_code || '',
+        location: targetProduct.location,
+        user_email: user?.email || 'guest@stocker.local',
+        user_name: user?.name || 'ゲスト'
+      } satisfies StockHistory;
+    });
+    setProducts(updatedProducts);
+    setHistories((currentHistories) => [...newHistories, ...currentHistories]);
+    saveLocalProducts(updatedProducts);
+    saveLocalHistories([...newHistories, ...histories]);
+    setPendingStockChanges({});
+    return true;
+  };
+
+  useEffect(() => {
+    if (Object.keys(pendingStockChanges).length === 0) return;
+
+    const timer = window.setTimeout(() => {
+      void commitPendingStockChanges();
+    }, PENDING_STOCK_COMMIT_DELAY_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [pendingStockChanges, products]);
+
   const adjustStock = async (productId: string, changeAmount: number): Promise<boolean> => {
     const targetProduct = products.find((p) => p.id === productId);
     if (!targetProduct) return false;
@@ -912,6 +1024,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <StockContext.Provider
       value={{
         products,
+        pendingStockChanges,
         histories,
         locations,
         tags,
@@ -947,6 +1060,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addProduct,
         updateProduct,
         adjustStock,
+        queueStockAdjustment,
         deleteProduct,
         getProductByJanCode,
         getProductsByJanCode,
